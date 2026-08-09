@@ -1,6 +1,7 @@
 package roomapp;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,24 +14,31 @@ public class Expense {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String roomCode;
 
+    @Column(nullable = false)
     private Long paidById;
 
+    @Column(nullable = false)
     private String paidByName;
 
+    @Column(nullable = false)
     private String itemName;
 
-    @Column(precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(nullable = false)
     private LocalDate expenseDate;
 
+    @Column(nullable = false)
     private String splitMode;
 
     @Column(length = 2000)
     private String sharedMemberIds;
 
+    @Column(nullable = false)
     private boolean deleted = false;
 
     private String deletedBy;

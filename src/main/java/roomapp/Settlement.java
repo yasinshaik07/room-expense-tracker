@@ -1,6 +1,7 @@
 package roomapp;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -12,16 +13,27 @@ public class Settlement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String roomCode;
+
+    @Column(nullable = false)
     private Long fromMemberId;
+
+    @Column(nullable = false)
     private String fromName;
+
+    @Column(nullable = false)
     private Long toMemberId;
+
+    @Column(nullable = false)
     private String toName;
 
-    @Column(precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(nullable = false)
     private LocalDateTime paidAt;
+
     private String recordedBy;
 
     public Settlement() {

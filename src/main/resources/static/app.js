@@ -44,6 +44,13 @@ function openPage(pageId, button) {
         top: 0,
         behavior: "smooth"
     });
+
+
+    // Remember current tab in browser
+    localStorage.setItem(
+        "roomAppPage",
+        pageId
+    );
 }
 
 
@@ -52,7 +59,7 @@ function openPageByName(pageId) {
     const buttons =
         document.querySelectorAll(".nav-btn");
 
-    for (let button of buttons) {
+    for (const button of buttons) {
 
         const clickText =
             button.getAttribute("onclick");
@@ -69,6 +76,27 @@ function openPageByName(pageId) {
 
             return;
         }
+    }
+
+
+    const page =
+        document.getElementById(pageId);
+
+    if (page) {
+
+        document
+            .querySelectorAll(".page")
+            .forEach(function (item) {
+
+                item.classList.remove(
+                    "active-page"
+                );
+            });
+
+
+        page.classList.add(
+            "active-page"
+        );
     }
 }
 
@@ -115,40 +143,140 @@ function showSelected() {
 }
 
 
+function restoreLastPage() {
+
+    const savedPage =
+        localStorage.getItem(
+            "roomAppPage"
+        );
+
+    if (!savedPage) {
+        return;
+    }
+
+
+    const page =
+        document.getElementById(
+            savedPage
+        );
+
+    if (!page) {
+        return;
+    }
+
+
+    const buttons =
+        document.querySelectorAll(
+            ".nav-btn"
+        );
+
+
+    for (const button of buttons) {
+
+        const clickText =
+            button.getAttribute(
+                "onclick"
+            );
+
+        if (
+            clickText &&
+            clickText.includes(
+                "'" + savedPage + "'"
+            )
+        ) {
+
+            openPage(
+                savedPage,
+                button
+            );
+
+            return;
+        }
+    }
+}
+
+
+function closeMenuWhenClickedOutside(
+    event
+) {
+
+    if (window.innerWidth > 760) {
+        return;
+    }
+
+
+    const sidebar =
+        document.querySelector(
+            ".sidebar"
+        );
+
+    const menuButton =
+        document.querySelector(
+            ".menu-btn"
+        );
+
+
+    if (
+        !sidebar ||
+        !sidebar.classList.contains(
+            "show"
+        )
+    ) {
+        return;
+    }
+
+
+    if (
+        sidebar.contains(
+            event.target
+        )
+    ) {
+        return;
+    }
+
+
+    if (
+        menuButton &&
+        menuButton.contains(
+            event.target
+        )
+    ) {
+        return;
+    }
+
+
+    sidebar.classList.remove(
+        "show"
+    );
+}
+
+
 document.addEventListener(
     "DOMContentLoaded",
     function () {
 
         showSelected();
 
+        restoreLastPage();
+
 
         document.addEventListener(
             "click",
-            function (event) {
-
-                const sidebar =
-                    document.querySelector(".sidebar");
-
-                const menuButton =
-                    document.querySelector(".menu-btn");
-
-
-                if (
-                    window.innerWidth <= 760 &&
-                    sidebar &&
-                    sidebar.classList.contains("show")
-                ) {
-
-                    if (
-                        !sidebar.contains(event.target) &&
-                        menuButton &&
-                        !menuButton.contains(event.target)
-                    ) {
-
-                        sidebar.classList.remove("show");
-                    }
-                }
-            }
+            closeMenuWhenClickedOutside
         );
+
+
+        const splitMode =
+            document.getElementById(
+                "splitMode"
+            );
+
+        if (splitMode) {
+
+            splitMode.addEventListener(
+                "change",
+                showSelected
+            );
+        }
     }
 );

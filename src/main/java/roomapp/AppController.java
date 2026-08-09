@@ -1,6 +1,9 @@
 package roomapp;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,9 +13,12 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
+
 import java.util.*;
 
 @Controller
@@ -38,63 +44,80 @@ public class AppController {
         this.settlementRepo = settlementRepo;
     }
 
-    // =========================
+    // =====================================================
     // HOME
-    // =========================
+    // =====================================================
 
     @GetMapping("/")
     public String home(
             Model model,
-            HttpSession session) {
+            HttpSession session,
+
+            @CookieValue(
+                    value = "roomCode",
+                    required = false
+            )
+            String savedRoomCode,
+
+            @CookieValue(
+                    value = "memberId",
+                    required = false
+            )
+            String savedMemberId) {
 
         String roomCode =
-                (String) session.getAttribute("roomCode");
+                getRoomCode(session);
 
+        // Remember Login
         if (roomCode == null) {
 
-            model.addAttribute("loggedIn", false);
+            restoreLoginFromCookies(
+                    session,
+                    savedRoomCode,
+                    savedMemberId
+            );
+
+            roomCode =
+                    getRoomCode(session);
+        }
+
+        // Not joined
+        if (roomCode == null) {
+
+            model.addAttribute(
+                    "loggedIn",
+                    false
+            );
 
             return "home";
         }
 
         Room room =
-                roomRepo.findByRoomCode(roomCode)
+                roomRepo
+                        .findByRoomCode(roomCode)
                         .orElse(null);
 
         if (room == null) {
 
             session.invalidate();
 
-            model.addAttribute("loggedIn", false);
+            model.addAttribute(
+                    "loggedIn",
+                    false
+            );
 
             return "home";
         }
 
-        model.addAttribute("loggedIn", true);
-        model.addAttribute("room", room);
-
-        model.addAttribute(
-                "currentMemberName",
-                session.getAttribute("memberName")
-        );
-
-        model.addAttribute(
-                "currentMemberId",
-                session.getAttribute("memberId")
-        );
-
-        boolean isAdmin =
-                Boolean.TRUE.equals(
-                        session.getAttribute("isAdmin")
-                );
-
-        model.addAttribute(
-                "isAdmin",
-                isAdmin
-        );
-
         LocalDate today =
                 LocalDate.now();
+
+        YearMonth currentMonth =
+                YearMonth.from(today);
+
+        // ==========================
+        // MEMBERS
+        // ==========================
 
         List<Member> members =
                 memberRepo
@@ -107,6 +130,10 @@ public class AppController {
                         .findByRoomCodeAndActiveTrueOrderByNameAsc(
                                 roomCode
                         );
+
+        // ==========================
+        // ATTENDANCE
+        // ==========================
 
         List<Attendance> todayAttendance =
                 attendanceRepo
@@ -129,6 +156,10 @@ public class AppController {
             }
         }
 
+        // ==========================
+        // TODAY EXPENSES
+        // ==========================
+
         List<Expense> todayExpenses =
                 expenseRepo
                         .findByRoomCodeAndDeletedFalseAndExpenseDate(
@@ -139,32 +170,71 @@ public class AppController {
         BigDecimal todayTotal =
                 getTotal(todayExpenses);
 
-        YearMonth month =
-                YearMonth.from(today);
+        // ==========================
+        // MONTH EXPENSES
+        // ==========================
 
         List<Expense> monthExpenses =
                 expenseRepo
                         .findByRoomCodeAndDeletedFalseAndExpenseDateBetween(
                                 roomCode,
-                                month.atDay(1),
-                                month.atEndOfMonth()
+                                currentMonth.atDay(1),
+                                currentMonth.atEndOfMonth()
                         );
 
         BigDecimal monthTotal =
                 getTotal(monthExpenses);
 
+        // ==========================
+        // MONTH PAYMENTS
+        // ==========================
+
+        LocalDateTime monthStart =
+                currentMonth
+                        .atDay(1)
+                        .atStartOfDay();
+
+        LocalDateTime monthEnd =
+                currentMonth
+                        .atEndOfMonth()
+                        .atTime(
+                                LocalTime.MAX
+                        );
+
+        List<Settlement> monthPayments =
+                settlementRepo
+                        .findByRoomCodeAndPaidAtBetweenOrderByPaidAtDesc(
+                                roomCode,
+                                monthStart,
+                                monthEnd
+                        );
+
+        // Full Payment History
         List<Settlement> settlementHistory =
-                settlementRepo.findByRoomCodeOrderByPaidAtDesc(roomCode);
+                settlementRepo
+                        .findByRoomCodeOrderByPaidAtDesc(
+                                roomCode
+                        );
+
+        // ==========================
+        // BALANCES
+        // ==========================
 
         List<BalanceView> balances =
                 calculateBalances(
                         members,
                         monthExpenses,
-                        settlementHistory
+                        monthPayments
                 );
 
         List<SettlementView> settlements =
-                calculatePendingSettlements(balances);
+                calculatePendingSettlements(
+                        balances
+                );
+
+        // ==========================
+        // HISTORY
+        // ==========================
 
         List<Expense> history =
                 expenseRepo
@@ -177,6 +247,34 @@ public class AppController {
                         .findByRoomCodeAndDeletedTrueOrderByDeletedAtDesc(
                                 roomCode
                         );
+
+        // ==========================
+        // MODEL
+        // ==========================
+
+        model.addAttribute(
+                "loggedIn",
+                true
+        );
+
+        model.addAttribute(
+                "room",
+                room
+        );
+
+        model.addAttribute(
+                "currentMemberName",
+                session.getAttribute(
+                        "memberName"
+                )
+        );
+
+        model.addAttribute(
+                "currentMemberId",
+                session.getAttribute(
+                        "memberId"
+                )
+        );
 
         model.addAttribute(
                 "members",
@@ -246,33 +344,34 @@ public class AppController {
         return "home";
     }
 
-
-    // =========================
+    // =====================================================
     // CREATE ROOM
-    // =========================
+    // =====================================================
 
     @PostMapping("/room/create")
     public String createRoom(
 
-            @RequestParam String roomName,
-            @RequestParam String adminName,
-            @RequestParam String adminPin,
+            @RequestParam
+            String roomName,
+
+            @RequestParam
+            String memberName,
 
             HttpSession session,
+
+            HttpServletResponse response,
+
             RedirectAttributes redirect) {
 
         if (roomName == null ||
                 roomName.trim().isEmpty() ||
 
-                adminName == null ||
-                adminName.trim().isEmpty() ||
-
-                adminPin == null ||
-                adminPin.trim().length() < 4) {
+                memberName == null ||
+                memberName.trim().isEmpty()) {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Enter room name, admin name and minimum 4 digit PIN."
+                    "Room name and your name are required."
             );
 
             return "redirect:/";
@@ -292,74 +391,78 @@ public class AppController {
                 roomCode
         );
 
+        // Database compatibility only
         room.setAdminName(
-                adminName.trim()
+                "DISABLED"
         );
 
         room.setAdminPin(
-                adminPin.trim()
+                "DISABLED"
         );
 
-        roomRepo.save(room);
+        roomRepo.save(
+                room
+        );
 
-
-        Member admin =
+        Member member =
                 new Member();
 
-        admin.setName(
-                adminName.trim()
+        member.setName(
+                memberName.trim()
         );
 
-        admin.setRoomCode(
+        member.setRoomCode(
                 roomCode
         );
 
-        admin.setActive(true);
-        admin.setAdmin(true);
+        member.setActive(true);
 
-        memberRepo.save(admin);
+        member.setAdmin(false);
 
+        member.setPresentToday(false);
 
-        session.setAttribute(
-                "roomCode",
-                roomCode
+        memberRepo.save(
+                member
         );
 
-        session.setAttribute(
-                "memberName",
-                admin.getName()
+        startSession(
+                session,
+                roomCode,
+                member
         );
 
-        session.setAttribute(
-                "memberId",
-                admin.getId()
-        );
-
-        session.setAttribute(
-                "isAdmin",
-                true
+        saveLoginCookies(
+                response,
+                roomCode,
+                member.getId()
         );
 
         redirect.addFlashAttribute(
                 "success",
-                "Room created. Room Code: " + roomCode
+                "Room created. Room Code: "
+                        + roomCode
         );
 
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // JOIN ROOM
-    // =========================
+    // =====================================================
 
     @PostMapping("/room/join")
     public String joinRoom(
 
-            @RequestParam String roomCode,
-            @RequestParam String memberName,
+            @RequestParam
+            String roomCode,
+
+            @RequestParam
+            String memberName,
 
             HttpSession session,
+
+            HttpServletResponse response,
+
             RedirectAttributes redirect) {
 
         if (roomCode == null ||
@@ -370,14 +473,15 @@ public class AppController {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Enter room code and your name."
+                    "Room code and your name are required."
             );
 
             return "redirect:/";
         }
 
         String code =
-                roomCode.trim()
+                roomCode
+                        .trim()
                         .toUpperCase();
 
         Room room =
@@ -395,7 +499,6 @@ public class AppController {
             return "redirect:/";
         }
 
-
         List<Member> roomMembers =
                 memberRepo
                         .findByRoomCodeOrderByNameAsc(
@@ -408,7 +511,8 @@ public class AppController {
         for (Member member :
                 roomMembers) {
 
-            if (member.getName()
+            if (member
+                    .getName()
                     .equalsIgnoreCase(
                             memberName.trim()
                     )) {
@@ -420,7 +524,7 @@ public class AppController {
             }
         }
 
-
+        // New member
         if (currentMember == null) {
 
             currentMember =
@@ -435,7 +539,10 @@ public class AppController {
             );
 
             currentMember.setActive(true);
+
             currentMember.setAdmin(false);
+
+            currentMember.setPresentToday(false);
 
             memberRepo.save(
                     currentMember
@@ -443,9 +550,12 @@ public class AppController {
 
         } else {
 
+            // Old member joining again
             if (!currentMember.isActive()) {
 
-                currentMember.setActive(true);
+                currentMember.setActive(
+                        true
+                );
 
                 memberRepo.save(
                         currentMember
@@ -453,130 +563,73 @@ public class AppController {
             }
         }
 
-
-        session.setAttribute(
-                "roomCode",
-                code
+        startSession(
+                session,
+                code,
+                currentMember
         );
 
-        session.setAttribute(
-                "memberName",
-                currentMember.getName()
-        );
-
-        session.setAttribute(
-                "memberId",
+        saveLoginCookies(
+                response,
+                code,
                 currentMember.getId()
         );
 
-        session.setAttribute(
-                "isAdmin",
-                currentMember.isAdmin()
-        );
-
         redirect.addFlashAttribute(
                 "success",
-                "Joined " + room.getRoomName()
+                "Joined "
+                        + room.getRoomName()
         );
 
         return "redirect:/";
     }
 
-
-    // =========================
-    // ADMIN LOGIN
-    // =========================
-
-    @PostMapping("/admin/login")
-    public String adminLogin(
-
-            @RequestParam String adminPin,
-
-            HttpSession session,
-            RedirectAttributes redirect) {
-
-        String roomCode =
-                getRoomCode(session);
-
-        if (roomCode == null) {
-            return "redirect:/";
-        }
-
-        Room room =
-                roomRepo
-                        .findByRoomCode(roomCode)
-                        .orElse(null);
-
-        if (room == null) {
-            return "redirect:/";
-        }
-
-        if (!room.getAdminPin()
-                .equals(adminPin)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Wrong admin PIN."
-            );
-
-            return "redirect:/";
-        }
-
-        session.setAttribute(
-                "isAdmin",
-                true
-        );
-
-        redirect.addFlashAttribute(
-                "success",
-                "Admin access enabled."
-        );
-
-        return "redirect:/";
-    }
-
-
-    // =========================
+    // =====================================================
     // LEAVE ROOM
-    // =========================
+    // =====================================================
 
     @PostMapping("/room/leave")
     public String leaveRoom(
-            HttpSession session) {
+
+            HttpSession session,
+
+            HttpServletResponse response) {
 
         session.invalidate();
+
+        deleteCookie(
+                response,
+                "roomCode"
+        );
+
+        deleteCookie(
+                response,
+                "memberId"
+        );
 
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // ADD MEMBER
-    // ADMIN ONLY
-    // =========================
+    // EVERYONE HAS SAME RIGHTS
+    // =====================================================
 
     @PostMapping("/member/add")
     public String addMember(
 
-            @RequestParam String name,
+            @RequestParam
+            String name,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
-
-        if (!isAdmin(session)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Only admin can add members."
-            );
-
-            return "redirect:/";
-        }
 
         String roomCode =
                 getRoomCode(session);
 
         if (roomCode == null) {
+
             return "redirect:/";
         }
 
@@ -591,7 +644,6 @@ public class AppController {
             return "redirect:/";
         }
 
-
         List<Member> members =
                 memberRepo
                         .findByRoomCodeOrderByNameAsc(
@@ -601,16 +653,21 @@ public class AppController {
         for (Member member :
                 members) {
 
-            if (member.getName()
+            if (member
+                    .getName()
                     .equalsIgnoreCase(
                             name.trim()
                     )) {
 
                 if (!member.isActive()) {
 
-                    member.setActive(true);
+                    member.setActive(
+                            true
+                    );
 
-                    memberRepo.save(member);
+                    memberRepo.save(
+                            member
+                    );
 
                     redirect.addFlashAttribute(
                             "success",
@@ -629,7 +686,6 @@ public class AppController {
             }
         }
 
-
         Member member =
                 new Member();
 
@@ -642,9 +698,14 @@ public class AppController {
         );
 
         member.setActive(true);
+
         member.setAdmin(false);
 
-        memberRepo.save(member);
+        member.setPresentToday(false);
+
+        memberRepo.save(
+                member
+        );
 
         redirect.addFlashAttribute(
                 "success",
@@ -654,32 +715,28 @@ public class AppController {
         return "redirect:/";
     }
 
-
-    // =========================
-    // REMOVE MEMBER FROM ROOM
-    // SOFT REMOVE
-    // =========================
+    // =====================================================
+    // REMOVE MEMBER
+    // SOFT REMOVE ONLY
+    // =====================================================
 
     @PostMapping("/member/remove/{id}")
     public String removeMember(
 
-            @PathVariable Long id,
+            @PathVariable
+            Long id,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
-
-        if (!isAdmin(session)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Only admin can remove members."
-            );
-
-            return "redirect:/";
-        }
 
         String roomCode =
                 getRoomCode(session);
+
+        if (roomCode == null) {
+
+            return "redirect:/";
+        }
 
         Member member =
                 memberRepo
@@ -692,80 +749,108 @@ public class AppController {
                         roomCode
                 )) {
 
-            return "redirect:/";
-        }
-
-        if (member.isAdmin()) {
-
             redirect.addFlashAttribute(
                     "error",
-                    "Room admin cannot be removed."
+                    "Member not found in this room."
             );
 
             return "redirect:/";
         }
 
-        member.setActive(false);
+        Long currentMemberId =
+                getCurrentMemberId(
+                        session
+                );
 
-        memberRepo.save(member);
+        if (Objects.equals(
+                currentMemberId,
+                member.getId()
+        )) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Use Leave Room if you want to leave."
+            );
+
+            return "redirect:/";
+        }
+
+        member.setActive(
+                false
+        );
+
+        memberRepo.save(
+                member
+        );
 
         redirect.addFlashAttribute(
                 "success",
-                "Member removed from active room list. History is safe."
+                "Member removed. Old history is safe."
         );
 
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // RESTORE MEMBER
-    // =========================
+    // =====================================================
 
     @PostMapping("/member/restore/{id}")
     public String restoreMember(
 
-            @PathVariable Long id,
+            @PathVariable
+            Long id,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
-
-        if (!isAdmin(session)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Only admin can restore members."
-            );
-
-            return "redirect:/";
-        }
 
         String roomCode =
                 getRoomCode(session);
+
+        if (roomCode == null) {
+
+            return "redirect:/";
+        }
 
         Member member =
                 memberRepo
                         .findById(id)
                         .orElse(null);
 
-        if (member != null &&
-                Objects.equals(
+        if (member == null ||
+                !Objects.equals(
                         member.getRoomCode(),
                         roomCode
                 )) {
 
-            member.setActive(true);
+            redirect.addFlashAttribute(
+                    "error",
+                    "Member not found in this room."
+            );
 
-            memberRepo.save(member);
+            return "redirect:/";
         }
+
+        member.setActive(
+                true
+        );
+
+        memberRepo.save(
+                member
+        );
+
+        redirect.addFlashAttribute(
+                "success",
+                "Member restored."
+        );
 
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // ATTENDANCE
-    // =========================
+    // =====================================================
 
     @Transactional
     @PostMapping("/attendance/save")
@@ -773,19 +858,24 @@ public class AppController {
 
             @RequestParam
             @DateTimeFormat(
-                    iso = DateTimeFormat.ISO.DATE)
+                    iso = DateTimeFormat.ISO.DATE
+            )
             LocalDate attendanceDate,
 
-            @RequestParam(required = false)
+            @RequestParam(
+                    required = false
+            )
             List<Long> presentIds,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
 
         String roomCode =
                 getRoomCode(session);
 
         if (roomCode == null) {
+
             return "redirect:/";
         }
 
@@ -825,9 +915,9 @@ public class AppController {
 
             boolean present =
                     presentIds != null &&
-                    presentIds.contains(
-                            member.getId()
-                    );
+                            presentIds.contains(
+                                    member.getId()
+                            );
 
             attendance.setPresent(
                     present
@@ -846,37 +936,45 @@ public class AppController {
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // ADD EXPENSE
-    // =========================
+    // =====================================================
 
     @PostMapping("/expense/add")
     public String addExpense(
 
-            @RequestParam Long paidById,
+            @RequestParam
+            Long paidById,
 
-            @RequestParam String itemName,
+            @RequestParam
+            String itemName,
 
-            @RequestParam BigDecimal amount,
+            @RequestParam
+            BigDecimal amount,
 
             @RequestParam
             @DateTimeFormat(
-                    iso = DateTimeFormat.ISO.DATE)
+                    iso = DateTimeFormat.ISO.DATE
+            )
             LocalDate expenseDate,
 
-            @RequestParam String splitMode,
+            @RequestParam
+            String splitMode,
 
-            @RequestParam(required = false)
+            @RequestParam(
+                    required = false
+            )
             List<Long> selectedIds,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
 
         String roomCode =
                 getRoomCode(session);
 
         if (roomCode == null) {
+
             return "redirect:/";
         }
 
@@ -886,6 +984,9 @@ public class AppController {
                         .orElse(null);
 
         if (payer == null ||
+
+                !payer.isActive() ||
+
                 !Objects.equals(
                         payer.getRoomCode(),
                         roomCode
@@ -899,7 +1000,6 @@ public class AppController {
             return "redirect:/";
         }
 
-
         if (itemName == null ||
                 itemName.trim().isEmpty()) {
 
@@ -911,10 +1011,10 @@ public class AppController {
             return "redirect:/";
         }
 
-
         if (amount == null ||
                 amount.compareTo(
-                        BigDecimal.ZERO) <= 0) {
+                        BigDecimal.ZERO
+                ) <= 0) {
 
             redirect.addFlashAttribute(
                     "error",
@@ -923,7 +1023,6 @@ public class AppController {
 
             return "redirect:/";
         }
-
 
         List<Member> shareMembers =
                 getShareMembers(
@@ -942,7 +1041,6 @@ public class AppController {
 
             return "redirect:/";
         }
-
 
         Expense expense =
                 new Expense();
@@ -978,13 +1076,15 @@ public class AppController {
                 splitMode
         );
 
-
         String ids =
-                shareMembers.stream()
-                        .map(member ->
-                                String.valueOf(
-                                        member.getId()
-                                ))
+                shareMembers
+                        .stream()
+                        .map(
+                                member ->
+                                        String.valueOf(
+                                                member.getId()
+                                        )
+                        )
                         .reduce(
                                 (a, b) ->
                                         a + "," + b
@@ -995,10 +1095,13 @@ public class AppController {
                 ids
         );
 
-        expense.setDeleted(false);
+        expense.setDeleted(
+                false
+        );
 
-        expenseRepo.save(expense);
-
+        expenseRepo.save(
+                expense
+        );
 
         redirect.addFlashAttribute(
                 "success",
@@ -1008,32 +1111,28 @@ public class AppController {
         return "redirect:/";
     }
 
-
-    // =========================
+    // =====================================================
     // SOFT DELETE EXPENSE
-    // ADMIN ONLY
-    // =========================
+    // EVERYONE CAN DO IT
+    // =====================================================
 
     @PostMapping("/expense/delete/{id}")
     public String deleteExpense(
 
-            @PathVariable Long id,
+            @PathVariable
+            Long id,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
-
-        if (!isAdmin(session)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Only admin can delete history."
-            );
-
-            return "redirect:/";
-        }
 
         String roomCode =
                 getRoomCode(session);
+
+        if (roomCode == null) {
+
+            return "redirect:/";
+        }
 
         Expense expense =
                 expenseRepo
@@ -1046,10 +1145,17 @@ public class AppController {
                         roomCode
                 )) {
 
+            redirect.addFlashAttribute(
+                    "error",
+                    "Expense not found in this room."
+            );
+
             return "redirect:/";
         }
 
-        expense.setDeleted(true);
+        expense.setDeleted(
+                true
+        );
 
         expense.setDeletedBy(
                 String.valueOf(
@@ -1063,120 +1169,152 @@ public class AppController {
                 LocalDateTime.now()
         );
 
-        expenseRepo.save(expense);
+        expenseRepo.save(
+                expense
+        );
 
         redirect.addFlashAttribute(
                 "success",
-                "Expense moved to Deleted History. It is not permanently erased."
+                "Expense moved to Deleted History."
         );
 
         return "redirect:/";
     }
 
-
-    // =========================
-    // RESTORE DELETED EXPENSE
-    // ADMIN ONLY
-    // =========================
+    // =====================================================
+    // RESTORE EXPENSE
+    // =====================================================
 
     @PostMapping("/expense/restore/{id}")
     public String restoreExpense(
 
-            @PathVariable Long id,
+            @PathVariable
+            Long id,
 
             HttpSession session,
+
             RedirectAttributes redirect) {
-
-        if (!isAdmin(session)) {
-
-            redirect.addFlashAttribute(
-                    "error",
-                    "Only admin can restore expenses."
-            );
-
-            return "redirect:/";
-        }
 
         String roomCode =
                 getRoomCode(session);
+
+        if (roomCode == null) {
+
+            return "redirect:/";
+        }
 
         Expense expense =
                 expenseRepo
                         .findById(id)
                         .orElse(null);
 
-        if (expense != null &&
-                Objects.equals(
+        if (expense == null ||
+                !Objects.equals(
                         expense.getRoomCode(),
                         roomCode
                 )) {
 
-            expense.setDeleted(false);
-            expense.setDeletedBy(null);
-            expense.setDeletedAt(null);
-
-            expenseRepo.save(expense);
-        }
-
-        return "redirect:/";
-    }
-
-
-    // =========================
-    // MARK SETTLEMENT AS PAID
-    // =========================
-
-    @PostMapping("/settlement/paid")
-    public String markSettlementPaid(
-
-            @RequestParam Long fromMemberId,
-            @RequestParam Long toMemberId,
-            @RequestParam BigDecimal amount,
-
-            HttpSession session,
-            RedirectAttributes redirect) {
-
-        String roomCode = getRoomCode(session);
-
-        if (roomCode == null) {
-            return "redirect:/";
-        }
-
-        Long currentMemberId =
-                (Long) session.getAttribute("memberId");
-
-        if (!isAdmin(session) &&
-                !Objects.equals(currentMemberId, fromMemberId)) {
-
             redirect.addFlashAttribute(
                     "error",
-                    "Only the person who pays can mark this payment as Paid."
+                    "Expense not found in this room."
             );
 
             return "redirect:/";
         }
 
+        expense.setDeleted(
+                false
+        );
+
+        expense.setDeletedBy(
+                null
+        );
+
+        expense.setDeletedAt(
+                null
+        );
+
+        expenseRepo.save(
+                expense
+        );
+
+        redirect.addFlashAttribute(
+                "success",
+                "Expense restored."
+        );
+
+        return "redirect:/";
+    }
+
+    // =====================================================
+    // MARK SETTLEMENT PAID
+    // EVERYONE CAN MARK
+    // HISTORY SHOWS WHO MARKED IT
+    // =====================================================
+
+    @PostMapping("/settlement/paid")
+    public String markSettlementPaid(
+
+            @RequestParam
+            Long fromMemberId,
+
+            @RequestParam
+            Long toMemberId,
+
+            @RequestParam
+            BigDecimal amount,
+
+            HttpSession session,
+
+            RedirectAttributes redirect) {
+
+        String roomCode =
+                getRoomCode(session);
+
+        if (roomCode == null) {
+
+            return "redirect:/";
+        }
+
         Member fromMember =
-                memberRepo.findById(fromMemberId).orElse(null);
+                memberRepo
+                        .findById(
+                                fromMemberId
+                        )
+                        .orElse(null);
 
         Member toMember =
-                memberRepo.findById(toMemberId).orElse(null);
+                memberRepo
+                        .findById(
+                                toMemberId
+                        )
+                        .orElse(null);
 
         if (fromMember == null ||
                 toMember == null ||
-                !Objects.equals(fromMember.getRoomCode(), roomCode) ||
-                !Objects.equals(toMember.getRoomCode(), roomCode)) {
+
+                !Objects.equals(
+                        fromMember.getRoomCode(),
+                        roomCode
+                ) ||
+
+                !Objects.equals(
+                        toMember.getRoomCode(),
+                        roomCode
+                )) {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Invalid settlement."
+                    "Invalid room payment."
             );
 
             return "redirect:/";
         }
 
         if (amount == null ||
-                amount.compareTo(BigDecimal.ZERO) <= 0) {
+                amount.compareTo(
+                        BigDecimal.ZERO
+                ) <= 0) {
 
             redirect.addFlashAttribute(
                     "error",
@@ -1186,28 +1324,57 @@ public class AppController {
             return "redirect:/";
         }
 
-        Settlement settlement = new Settlement();
+        Settlement settlement =
+                new Settlement();
 
-        settlement.setRoomCode(roomCode);
-        settlement.setFromMemberId(fromMember.getId());
-        settlement.setFromName(fromMember.getName());
-        settlement.setToMemberId(toMember.getId());
-        settlement.setToName(toMember.getName());
+        settlement.setRoomCode(
+                roomCode
+        );
+
+        settlement.setFromMemberId(
+                fromMember.getId()
+        );
+
+        settlement.setFromName(
+                fromMember.getName()
+        );
+
+        settlement.setToMemberId(
+                toMember.getId()
+        );
+
+        settlement.setToName(
+                toMember.getName()
+        );
+
         settlement.setAmount(
-                amount.setScale(2, RoundingMode.HALF_UP)
-        );
-        settlement.setPaidAt(LocalDateTime.now());
-        settlement.setRecordedBy(
-                String.valueOf(session.getAttribute("memberName"))
+                amount.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                )
         );
 
-        settlementRepo.save(settlement);
+        settlement.setPaidAt(
+                LocalDateTime.now()
+        );
+
+        settlement.setRecordedBy(
+                String.valueOf(
+                        session.getAttribute(
+                                "memberName"
+                        )
+                )
+        );
+
+        settlementRepo.save(
+                settlement
+        );
 
         redirect.addFlashAttribute(
                 "success",
                 fromMember.getName()
                         + " paid ₹"
-                        + amount
+                        + settlement.getAmount()
                         + " to "
                         + toMember.getName()
         );
@@ -1215,16 +1382,18 @@ public class AppController {
         return "redirect:/";
     }
 
-
-    // =========================
-    // SHARE MEMBERS
-    // =========================
+    // =====================================================
+    // GET SHARE MEMBERS
+    // =====================================================
 
     private List<Member> getShareMembers(
 
             String roomCode,
+
             String splitMode,
+
             LocalDate expenseDate,
+
             List<Long> selectedIds) {
 
         List<Member> activeMembers =
@@ -1233,86 +1402,96 @@ public class AppController {
                                 roomCode
                         );
 
-        if ("ALL".equals(splitMode)) {
+        // ALL
+        if ("ALL".equals(
+                splitMode
+        )) {
 
             return activeMembers;
         }
 
-
-        if ("SELECTED".equals(splitMode)) {
-
-            if (selectedIds == null ||
-                    selectedIds.isEmpty()) {
-
-                return new ArrayList<>();
-            }
+        // SELECTED
+        if ("SELECTED".equals(
+                splitMode
+        )) {
 
             List<Member> result =
                     new ArrayList<>();
+
+            if (selectedIds == null) {
+
+                return result;
+            }
 
             for (Long id :
                     selectedIds) {
 
                 memberRepo
                         .findById(id)
-                        .ifPresent(member -> {
+                        .ifPresent(
+                                member -> {
 
-                            if (Objects.equals(
-                                    member.getRoomCode(),
-                                    roomCode
-                            ) &&
-                                    member.isActive()) {
+                                    if (member.isActive() &&
 
-                                result.add(member);
-                            }
-                        });
+                                            Objects.equals(
+                                                    member.getRoomCode(),
+                                                    roomCode
+                                            )) {
+
+                                        result.add(
+                                                member
+                                        );
+                                    }
+                                }
+                        );
             }
 
             return result;
         }
 
+        // PRESENT
+        if ("PRESENT".equals(
+                splitMode
+        )) {
 
-        if ("PRESENT".equals(splitMode)) {
-
-            List<Attendance> attendance =
+            List<Attendance> attendanceList =
                     attendanceRepo
                             .findByRoomCodeAndAttendanceDate(
                                     roomCode,
                                     expenseDate
                             );
 
-            List<Long> ids =
-                    new ArrayList<>();
-
-            for (Attendance item :
-                    attendance) {
-
-                if (item.isPresent()) {
-
-                    ids.add(
-                            item.getMemberId()
-                    );
-                }
-            }
-
             List<Member> result =
                     new ArrayList<>();
 
-            for (Long id :
-                    ids) {
+            for (Attendance attendance :
+                    attendanceList) {
+
+                if (!attendance.isPresent()) {
+
+                    continue;
+                }
 
                 memberRepo
-                        .findById(id)
-                        .ifPresent(member -> {
+                        .findById(
+                                attendance.getMemberId()
+                        )
+                        .ifPresent(
+                                member -> {
 
-                            if (Objects.equals(
-                                    member.getRoomCode(),
-                                    roomCode
-                            )) {
+                                    if (member.isActive() &&
 
-                                result.add(member);
-                            }
-                        });
+                                            Objects.equals(
+                                                    member.getRoomCode(),
+                                                    roomCode
+                                            )) {
+
+                                        result.add(
+                                                member
+                                        );
+                                    }
+                                }
+                        );
             }
 
             return result;
@@ -1321,12 +1500,12 @@ public class AppController {
         return new ArrayList<>();
     }
 
-
-    // =========================
+    // =====================================================
     // TOTAL
-    // =========================
+    // =====================================================
 
     private BigDecimal getTotal(
+
             List<Expense> expenses) {
 
         BigDecimal total =
@@ -1344,12 +1523,12 @@ public class AppController {
         return total;
     }
 
-
-    // =========================
-    // PARSE IDS
-    // =========================
+    // =====================================================
+    // PARSE SHARED MEMBER IDS
+    // =====================================================
 
     private List<Long> parseIds(
+
             String text) {
 
         List<Long> ids =
@@ -1382,70 +1561,119 @@ public class AppController {
         return ids;
     }
 
-
-    // =========================
-    // BALANCE
-    // =========================
+    // =====================================================
+    // CALCULATE BALANCES
+    // =====================================================
 
     private List<BalanceView> calculateBalances(
 
             List<Member> members,
+
             List<Expense> expenses,
-            List<Settlement> settlementHistory) {
 
-        Map<Long, BigDecimal> paidMap = new HashMap<>();
-        Map<Long, BigDecimal> shareMap = new HashMap<>();
+            List<Settlement> payments) {
 
-        for (Expense expense : expenses) {
+        Map<Long, BigDecimal> paidMap =
+                new HashMap<>();
 
-            Long payerId = expense.getPaidById();
+        Map<Long, BigDecimal> shareMap =
+                new HashMap<>();
+
+        // ==========================
+        // EXPENSES
+        // ==========================
+
+        for (Expense expense :
+                expenses) {
+
+            Long payerId =
+                    expense.getPaidById();
 
             paidMap.put(
                     payerId,
-                    paidMap.getOrDefault(payerId, BigDecimal.ZERO)
-                            .add(expense.getAmount())
+
+                    paidMap
+                            .getOrDefault(
+                                    payerId,
+                                    BigDecimal.ZERO
+                            )
+                            .add(
+                                    expense.getAmount()
+                            )
             );
 
             List<Long> shareIds =
-                    parseIds(expense.getSharedMemberIds());
+                    parseIds(
+                            expense.getSharedMemberIds()
+                    );
 
             if (shareIds.isEmpty()) {
+
                 continue;
             }
 
             long totalPaise =
-                    expense.getAmount()
+                    expense
+                            .getAmount()
                             .movePointRight(2)
                             .longValue();
 
-            long base = totalPaise / shareIds.size();
-            long remainder = totalPaise % shareIds.size();
+            long base =
+                    totalPaise /
+                            shareIds.size();
 
-            for (int i = 0; i < shareIds.size(); i++) {
+            long remainder =
+                    totalPaise %
+                            shareIds.size();
+
+            for (int i = 0;
+                 i < shareIds.size();
+                 i++) {
 
                 long paise =
-                        base + (i < remainder ? 1 : 0);
+                        base +
+                                (
+                                        i < remainder
+                                                ? 1
+                                                : 0
+                                );
 
-                BigDecimal share =
-                        BigDecimal.valueOf(paise)
-                                .movePointLeft(2);
+                BigDecimal memberShare =
+                        BigDecimal
+                                .valueOf(
+                                        paise
+                                )
+                                .movePointLeft(
+                                        2
+                                );
 
-                Long memberId = shareIds.get(i);
+                Long memberId =
+                        shareIds.get(i);
 
                 shareMap.put(
                         memberId,
-                        shareMap.getOrDefault(
-                                memberId,
-                                BigDecimal.ZERO
-                        ).add(share)
+
+                        shareMap
+                                .getOrDefault(
+                                        memberId,
+                                        BigDecimal.ZERO
+                                )
+                                .add(
+                                        memberShare
+                                )
                 );
             }
         }
 
+        // ==========================
+        // INITIAL BALANCE
+        // ==========================
+
         Map<Long, BigDecimal> balanceMap =
                 new HashMap<>();
 
-        for (Member member : members) {
+        for (Member member :
+                members) {
 
             BigDecimal paid =
                     paidMap.getOrDefault(
@@ -1461,41 +1689,66 @@ public class AppController {
 
             balanceMap.put(
                     member.getId(),
-                    paid.subtract(share)
+                    paid.subtract(
+                            share
+                    )
             );
         }
 
-        // Completed payments reduce the pending balances.
-        for (Settlement settlement : settlementHistory) {
+        // ==========================
+        // APPLY PAID SETTLEMENTS
+        // ==========================
 
-            Long fromId = settlement.getFromMemberId();
-            Long toId = settlement.getToMemberId();
-            BigDecimal amount = settlement.getAmount();
+        for (Settlement payment :
+                payments) {
 
-            if (fromId == null || toId == null || amount == null) {
-                continue;
-            }
+            Long fromId =
+                    payment.getFromMemberId();
 
+            Long toId =
+                    payment.getToMemberId();
+
+            BigDecimal amount =
+                    payment.getAmount();
+
+            // payer debt reduces
             balanceMap.put(
                     fromId,
-                    balanceMap.getOrDefault(
-                            fromId,
-                            BigDecimal.ZERO
-                    ).add(amount)
+
+                    balanceMap
+                            .getOrDefault(
+                                    fromId,
+                                    BigDecimal.ZERO
+                            )
+                            .add(
+                                    amount
+                            )
             );
 
+            // receiver amount reduces
             balanceMap.put(
                     toId,
-                    balanceMap.getOrDefault(
-                            toId,
-                            BigDecimal.ZERO
-                    ).subtract(amount)
+
+                    balanceMap
+                            .getOrDefault(
+                                    toId,
+                                    BigDecimal.ZERO
+                            )
+                            .subtract(
+                                    amount
+                            )
             );
         }
 
-        List<BalanceView> result = new ArrayList<>();
+        // ==========================
+        // FINAL RESULTS
+        // ==========================
 
-        for (Member member : members) {
+        List<BalanceView> result =
+                new ArrayList<>();
+
+        for (Member member :
+                members) {
 
             BigDecimal paid =
                     paidMap.getOrDefault(
@@ -1516,16 +1769,30 @@ public class AppController {
                     );
 
             if (member.isActive() ||
-                    paid.compareTo(BigDecimal.ZERO) != 0 ||
-                    share.compareTo(BigDecimal.ZERO) != 0 ||
-                    balance.compareTo(BigDecimal.ZERO) != 0) {
+
+                    paid.compareTo(
+                            BigDecimal.ZERO
+                    ) != 0 ||
+
+                    share.compareTo(
+                            BigDecimal.ZERO
+                    ) != 0 ||
+
+                    balance.compareTo(
+                            BigDecimal.ZERO
+                    ) != 0) {
 
                 result.add(
                         new BalanceView(
+
                                 member.getId(),
+
                                 member.getName(),
+
                                 paid,
+
                                 share,
+
                                 balance
                         )
                 );
@@ -1535,83 +1802,134 @@ public class AppController {
         return result;
     }
 
+    // =====================================================
+    // WHO PAYS WHOM
+    // =====================================================
 
-    // =========================
-    // EXACT SETTLEMENT
-    // =========================
+    private List<SettlementView>
+    calculatePendingSettlements(
 
-    private List<SettlementView> calculatePendingSettlements(
             List<BalanceView> balances) {
 
-        List<BalanceTemp> payers = new ArrayList<>();
-        List<BalanceTemp> receivers = new ArrayList<>();
+        List<BalanceTemp> payers =
+                new ArrayList<>();
 
-        for (BalanceView balance : balances) {
+        List<BalanceTemp> receivers =
+                new ArrayList<>();
 
-            if (balance.balance.compareTo(BigDecimal.ZERO) < 0) {
+        for (BalanceView balance :
+                balances) {
+
+            // PAY
+            if (balance.balance
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) < 0) {
 
                 payers.add(
                         new BalanceTemp(
+
                                 balance.memberId,
+
                                 balance.name,
+
                                 balance.balance.abs()
                         )
                 );
             }
 
-            if (balance.balance.compareTo(BigDecimal.ZERO) > 0) {
+            // RECEIVE
+            if (balance.balance
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) > 0) {
 
                 receivers.add(
                         new BalanceTemp(
+
                                 balance.memberId,
+
                                 balance.name,
+
                                 balance.balance
                         )
                 );
             }
         }
 
-        List<SettlementView> result = new ArrayList<>();
+        List<SettlementView> result =
+                new ArrayList<>();
 
-        int payerIndex = 0;
-        int receiverIndex = 0;
+        int payerIndex =
+                0;
 
-        while (payerIndex < payers.size() &&
-                receiverIndex < receivers.size()) {
+        int receiverIndex =
+                0;
+
+        while (payerIndex <
+                payers.size() &&
+
+                receiverIndex <
+                        receivers.size()) {
 
             BalanceTemp payer =
-                    payers.get(payerIndex);
+                    payers.get(
+                            payerIndex
+                    );
 
             BalanceTemp receiver =
-                    receivers.get(receiverIndex);
+                    receivers.get(
+                            receiverIndex
+                    );
 
             BigDecimal amount =
-                    payer.amount.min(receiver.amount);
+                    payer.amount.min(
+                            receiver.amount
+                    );
 
-            if (amount.compareTo(BigDecimal.ZERO) > 0) {
+            if (amount.compareTo(
+                    BigDecimal.ZERO
+            ) > 0) {
 
                 result.add(
                         new SettlementView(
+
                                 payer.memberId,
+
                                 payer.name,
+
                                 receiver.memberId,
+
                                 receiver.name,
+
                                 amount
                         )
                 );
             }
 
             payer.amount =
-                    payer.amount.subtract(amount);
+                    payer.amount.subtract(
+                            amount
+                    );
 
             receiver.amount =
-                    receiver.amount.subtract(amount);
+                    receiver.amount.subtract(
+                            amount
+                    );
 
-            if (payer.amount.compareTo(BigDecimal.ZERO) == 0) {
+            if (payer.amount
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) == 0) {
+
                 payerIndex++;
             }
 
-            if (receiver.amount.compareTo(BigDecimal.ZERO) == 0) {
+            if (receiver.amount
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) == 0) {
+
                 receiverIndex++;
             }
         }
@@ -1619,10 +1937,9 @@ public class AppController {
         return result;
     }
 
-
-    // =========================
-    // ROOM CODE
-    // =========================
+    // =====================================================
+    // GENERATE ROOM CODE
+    // =====================================================
 
     private String generateRoomCode() {
 
@@ -1644,7 +1961,9 @@ public class AppController {
                  i++) {
 
                 builder.append(
+
                         characters.charAt(
+
                                 random.nextInt(
                                         characters.length()
                                 )
@@ -1656,16 +1975,22 @@ public class AppController {
                     builder.toString();
 
         } while (
-                roomRepo.existsByRoomCode(
-                        code
-                )
+
+                roomRepo
+                        .existsByRoomCode(
+                                code
+                        )
         );
 
         return code;
     }
 
+    // =====================================================
+    // SESSION
+    // =====================================================
 
     private String getRoomCode(
+
             HttpSession session) {
 
         return (String)
@@ -1674,36 +1999,237 @@ public class AppController {
                 );
     }
 
+    private Long getCurrentMemberId(
 
-    private boolean isAdmin(
             HttpSession session) {
 
-        return Boolean.TRUE.equals(
+        Object memberId =
                 session.getAttribute(
-                        "isAdmin"
-                )
+                        "memberId"
+                );
+
+        if (memberId instanceof Long) {
+
+            return (Long) memberId;
+        }
+
+        return null;
+    }
+
+    private void startSession(
+
+            HttpSession session,
+
+            String roomCode,
+
+            Member member) {
+
+        session.setAttribute(
+                "roomCode",
+                roomCode
+        );
+
+        session.setAttribute(
+                "memberId",
+                member.getId()
+        );
+
+        session.setAttribute(
+                "memberName",
+                member.getName()
         );
     }
 
+    // =====================================================
+    // REMEMBER LOGIN
+    // =====================================================
 
-    // =========================
-    // VIEW CLASSES
-    // =========================
+    private void restoreLoginFromCookies(
+
+            HttpSession session,
+
+            String savedRoomCode,
+
+            String savedMemberId) {
+
+        if (savedRoomCode == null ||
+                savedRoomCode.isBlank() ||
+
+                savedMemberId == null ||
+                savedMemberId.isBlank()) {
+
+            return;
+        }
+
+        try {
+
+            Long memberId =
+                    Long.parseLong(
+                            savedMemberId
+                    );
+
+            Member member =
+                    memberRepo
+                            .findById(
+                                    memberId
+                            )
+                            .orElse(null);
+
+            if (member == null ||
+
+                    !member.isActive() ||
+
+                    !Objects.equals(
+                            member.getRoomCode(),
+                            savedRoomCode
+                    )) {
+
+                return;
+            }
+
+            if (roomRepo
+                    .findByRoomCode(
+                            savedRoomCode
+                    )
+                    .isEmpty()) {
+
+                return;
+            }
+
+            startSession(
+                    session,
+                    savedRoomCode,
+                    member
+            );
+
+        } catch (
+                NumberFormatException ignored
+        ) {
+        }
+    }
+
+    private void saveLoginCookies(
+
+            HttpServletResponse response,
+
+            String roomCode,
+
+            Long memberId) {
+
+        Cookie roomCookie =
+                new Cookie(
+                        "roomCode",
+                        roomCode
+                );
+
+        roomCookie.setMaxAge(
+                60 * 60 * 24 * 30
+        );
+
+        roomCookie.setPath(
+                "/"
+        );
+
+        roomCookie.setHttpOnly(
+                true
+        );
+
+        roomCookie.setSecure(
+                true
+        );
+
+        Cookie memberCookie =
+                new Cookie(
+                        "memberId",
+                        String.valueOf(
+                                memberId
+                        )
+                );
+
+        memberCookie.setMaxAge(
+                60 * 60 * 24 * 30
+        );
+
+        memberCookie.setPath(
+                "/"
+        );
+
+        memberCookie.setHttpOnly(
+                true
+        );
+
+        memberCookie.setSecure(
+                true
+        );
+
+        response.addCookie(
+                roomCookie
+        );
+
+        response.addCookie(
+                memberCookie
+        );
+    }
+
+    private void deleteCookie(
+
+            HttpServletResponse response,
+
+            String name) {
+
+        Cookie cookie =
+                new Cookie(
+                        name,
+                        ""
+                );
+
+        cookie.setMaxAge(
+                0
+        );
+
+        cookie.setPath(
+                "/"
+        );
+
+        cookie.setHttpOnly(
+                true
+        );
+
+        cookie.setSecure(
+                true
+        );
+
+        response.addCookie(
+                cookie
+        );
+    }
+
+    // =====================================================
+    // BALANCE VIEW
+    // =====================================================
 
     public static class BalanceView {
 
         private final Long memberId;
+
         private final String name;
+
         private final BigDecimal paid;
+
         private final BigDecimal share;
+
         private final BigDecimal balance;
 
         public BalanceView(
 
                 Long memberId,
+
                 String name,
+
                 BigDecimal paid,
+
                 BigDecimal share,
+
                 BigDecimal balance) {
 
             this.memberId =
@@ -1723,35 +2249,44 @@ public class AppController {
         }
 
         public Long getMemberId() {
+
             return memberId;
         }
 
         public String getName() {
+
             return name;
         }
 
         public BigDecimal getPaid() {
+
             return paid;
         }
 
         public BigDecimal getShare() {
+
             return share;
         }
 
         public BigDecimal getAmount() {
+
             return balance.abs();
         }
 
         public String getStatus() {
 
-            if (balance.compareTo(
-                    BigDecimal.ZERO) > 0) {
+            if (balance
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) > 0) {
 
                 return "GET";
             }
 
-            if (balance.compareTo(
-                    BigDecimal.ZERO) < 0) {
+            if (balance
+                    .compareTo(
+                            BigDecimal.ZERO
+                    ) < 0) {
 
                 return "PAY";
             }
@@ -1760,66 +2295,104 @@ public class AppController {
         }
     }
 
+    // =====================================================
+    // SETTLEMENT VIEW
+    // =====================================================
 
     public static class SettlementView {
 
         private final Long fromMemberId;
+
         private final String fromName;
+
         private final Long toMemberId;
+
         private final String toName;
+
         private final BigDecimal amount;
 
         public SettlementView(
+
                 Long fromMemberId,
+
                 String fromName,
+
                 Long toMemberId,
+
                 String toName,
+
                 BigDecimal amount) {
 
-            this.fromMemberId = fromMemberId;
-            this.fromName = fromName;
-            this.toMemberId = toMemberId;
-            this.toName = toName;
-            this.amount = amount;
+            this.fromMemberId =
+                    fromMemberId;
+
+            this.fromName =
+                    fromName;
+
+            this.toMemberId =
+                    toMemberId;
+
+            this.toName =
+                    toName;
+
+            this.amount =
+                    amount;
         }
 
         public Long getFromMemberId() {
+
             return fromMemberId;
         }
 
         public String getFromName() {
+
             return fromName;
         }
 
         public Long getToMemberId() {
+
             return toMemberId;
         }
 
         public String getToName() {
+
             return toName;
         }
 
         public BigDecimal getAmount() {
+
             return amount;
         }
     }
 
+    // =====================================================
+    // INTERNAL BALANCE TEMP
+    // =====================================================
 
     private static class BalanceTemp {
 
         private final Long memberId;
+
         private final String name;
+
         private BigDecimal amount;
 
         public BalanceTemp(
+
                 Long memberId,
+
                 String name,
+
                 BigDecimal amount) {
 
-            this.memberId = memberId;
-            this.name = name;
-            this.amount = amount;
+            this.memberId =
+                    memberId;
+
+            this.name =
+                    name;
+
+            this.amount =
+                    amount;
         }
     }
-
 }

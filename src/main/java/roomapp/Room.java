@@ -16,6 +16,8 @@ public class Room {
     @Column(nullable = false, unique = true)
     private String roomCode;
 
+    // Existing database compatibility kosam unchutunnam.
+    // App lo admin system use cheyyamu.
     @Column(nullable = false)
     private String adminName;
 

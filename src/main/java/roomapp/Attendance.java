@@ -1,6 +1,7 @@
 package roomapp;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 
 @Entity
@@ -11,14 +12,19 @@ public class Attendance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private Long memberId;
 
+    @Column(nullable = false)
     private String memberName;
 
+    @Column(nullable = false)
     private String roomCode;
 
+    @Column(nullable = false)
     private LocalDate attendanceDate;
 
+    @Column(nullable = false)
     private boolean present;
 
     public Attendance() {

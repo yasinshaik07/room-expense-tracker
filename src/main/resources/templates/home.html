@@ -3,18 +3,24 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Room Expense Tracker</title>
-    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <link rel="stylesheet"
+          th:href="@{/style.css}">
 </head>
 
 <body>
 
-<!-- ========================= -->
-<!-- NOT JOINED TO ANY ROOM -->
-<!-- ========================= -->
+<!-- ===================================================== -->
+<!-- NOT LOGGED IN -->
+<!-- ===================================================== -->
 
-<div class="welcome-page" th:if="${!loggedIn}">
+<div class="welcome-page"
+     th:if="${!loggedIn}">
 
     <div class="welcome-card">
 
@@ -22,10 +28,12 @@
             🏠
         </div>
 
-        <h1>Room Expense Tracker</h1>
+        <h1>
+            Room Expense Tracker
+        </h1>
 
         <p class="welcome-text">
-            Create your room or join an existing room.
+            Create a room or join using a room code.
         </p>
 
         <div class="room-option-grid">
@@ -34,13 +42,16 @@
 
             <div class="room-option">
 
-                <h2>✨ Create Room</h2>
+                <h2>
+                    ✨ Create Room
+                </h2>
 
                 <p>
-                    Create a new room and become the admin.
+                    Create a new room and share the room code with your roommates.
                 </p>
 
-                <form th:action="@{/room/create}" method="post">
+                <form th:action="@{/room/create}"
+                      method="post">
 
                     <div class="form-group">
 
@@ -48,13 +59,13 @@
                             Room Name
                         </label>
 
-                        <input
-                                type="text"
-                                name="roomName"
-                                placeholder="Example: Nellore Room"
-                                required>
+                        <input type="text"
+                               name="roomName"
+                               placeholder="Example: Pocket Empty Palace"
+                               required>
 
                     </div>
+
 
                     <div class="form-group">
 
@@ -62,31 +73,15 @@
                             Your Name
                         </label>
 
-                        <input
-                                type="text"
-                                name="adminName"
-                                placeholder="Enter your name"
-                                required>
+                        <input type="text"
+                               name="memberName"
+                               placeholder="Enter your name"
+                               required>
 
                     </div>
 
-                    <div class="form-group">
 
-                        <label>
-                            Admin PIN
-                        </label>
-
-                        <input
-                                type="password"
-                                name="adminPin"
-                                minlength="4"
-                                placeholder="Minimum 4 digits"
-                                required>
-
-                    </div>
-
-                    <button
-                            class="primary large"
+                    <button class="primary large"
                             type="submit">
 
                         Create Room
@@ -102,13 +97,16 @@
 
             <div class="room-option">
 
-                <h2>🔑 Join Room</h2>
+                <h2>
+                    🔑 Join Room
+                </h2>
 
                 <p>
                     Enter the room code shared by your roommate.
                 </p>
 
-                <form th:action="@{/room/join}" method="post">
+                <form th:action="@{/room/join}"
+                      method="post">
 
                     <div class="form-group">
 
@@ -116,14 +114,14 @@
                             Room Code
                         </label>
 
-                        <input
-                                type="text"
-                                name="roomCode"
-                                placeholder="Example: AB12CD"
-                                maxlength="6"
-                                required>
+                        <input type="text"
+                               name="roomCode"
+                               maxlength="6"
+                               placeholder="Example: AB12CD"
+                               required>
 
                     </div>
+
 
                     <div class="form-group">
 
@@ -131,16 +129,15 @@
                             Your Name
                         </label>
 
-                        <input
-                                type="text"
-                                name="memberName"
-                                placeholder="Enter your name"
-                                required>
+                        <input type="text"
+                               name="memberName"
+                               placeholder="Enter your name"
+                               required>
 
                     </div>
 
-                    <button
-                            class="secondary large"
+
+                    <button class="secondary large"
                             type="submit">
 
                         Join Room
@@ -154,16 +151,15 @@
         </div>
 
 
-        <div
-                class="message success"
-                th:if="${success}"
-                th:text="${success}">
+        <div class="message success"
+             th:if="${success}"
+             th:text="${success}">
         </div>
 
-        <div
-                class="message error"
-                th:if="${error}"
-                th:text="${error}">
+
+        <div class="message error"
+             th:if="${error}"
+             th:text="${error}">
         </div>
 
     </div>
@@ -171,11 +167,12 @@
 </div>
 
 
-<!-- ========================= -->
-<!-- ROOM APP -->
-<!-- ========================= -->
+<!-- ===================================================== -->
+<!-- LOGGED IN -->
+<!-- ===================================================== -->
 
-<div class="layout" th:if="${loggedIn}">
+<div class="layout"
+     th:if="${loggedIn}">
 
 
     <!-- SIDEBAR -->
@@ -218,12 +215,8 @@
                     Member
                 </strong>
 
-                <small th:if="${isAdmin}">
-                    Admin
-                </small>
-
-                <small th:unless="${isAdmin}">
-                    Member
+                <small>
+                    Room Member
                 </small>
 
             </div>
@@ -233,8 +226,7 @@
 
         <nav>
 
-            <button
-                    class="nav-btn active"
+            <button class="nav-btn active"
                     type="button"
                     onclick="openPage('dashboard', this)">
 
@@ -242,8 +234,8 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
                     onclick="openPage('members', this)">
 
@@ -251,8 +243,8 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
                     onclick="openPage('attendance', this)">
 
@@ -260,8 +252,8 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
                     onclick="openPage('expense', this)">
 
@@ -269,8 +261,8 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
                     onclick="openPage('balance', this)">
 
@@ -278,8 +270,8 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
                     onclick="openPage('history', this)">
 
@@ -287,36 +279,23 @@
 
             </button>
 
-            <button
-                    class="nav-btn"
+
+            <button class="nav-btn"
                     type="button"
-                    th:if="${isAdmin}"
                     onclick="openPage('deleted', this)">
 
                 ♻️ Deleted History
 
             </button>
 
-            <button
-                    class="nav-btn"
-                    type="button"
-                    th:unless="${isAdmin}"
-                    onclick="openPage('admin', this)">
-
-                🔐 Admin Login
-
-            </button>
-
         </nav>
 
 
-        <form
-                th:action="@{/room/leave}"
-                method="post"
-                class="leave-form">
+        <form th:action="@{/room/leave}"
+              method="post"
+              class="leave-form">
 
-            <button
-                    class="leave-btn"
+            <button class="leave-btn"
                     type="submit">
 
                 Leave Room
@@ -337,8 +316,7 @@
 
         <div class="mobile-header">
 
-            <button
-                    class="menu-btn"
+            <button class="menu-btn"
                     type="button"
                     onclick="toggleMenu()">
 
@@ -366,26 +344,24 @@
 
         <!-- MESSAGES -->
 
-        <div
-                class="message success"
-                th:if="${success}"
-                th:text="${success}">
-        </div>
-
-        <div
-                class="message error"
-                th:if="${error}"
-                th:text="${error}">
+        <div class="message success"
+             th:if="${success}"
+             th:text="${success}">
         </div>
 
 
-        <!-- ========================= -->
+        <div class="message error"
+             th:if="${error}"
+             th:text="${error}">
+        </div>
+
+
+        <!-- ================================================= -->
         <!-- DASHBOARD -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="dashboard"
-                class="page active-page">
+        <section id="dashboard"
+                 class="page active-page">
 
             <div class="page-header">
 
@@ -401,6 +377,7 @@
 
                 </div>
 
+
                 <div class="room-code-box">
 
                     Room Code
@@ -415,6 +392,7 @@
 
 
             <div class="stats">
+
 
                 <div class="stat-card">
 
@@ -531,8 +509,7 @@
 
                 <div class="quick-actions">
 
-                    <button
-                            type="button"
+                    <button type="button"
                             onclick="openPageByName('members')">
 
                         <span>
@@ -544,8 +521,7 @@
                     </button>
 
 
-                    <button
-                            type="button"
+                    <button type="button"
                             onclick="openPageByName('attendance')">
 
                         <span>
@@ -557,8 +533,7 @@
                     </button>
 
 
-                    <button
-                            type="button"
+                    <button type="button"
                             onclick="openPageByName('expense')">
 
                         <span>
@@ -570,8 +545,7 @@
                     </button>
 
 
-                    <button
-                            type="button"
+                    <button type="button"
                             onclick="openPageByName('balance')">
 
                         <span>
@@ -589,13 +563,12 @@
         </section>
 
 
-        <!-- ========================= -->
+        <!-- ================================================= -->
         <!-- MEMBERS -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="members"
-                class="page">
+        <section id="members"
+                 class="page">
 
             <div class="page-header">
 
@@ -606,7 +579,7 @@
                     </h1>
 
                     <p>
-                        Manage current and old room members.
+                        Everyone in this room has equal rights.
                     </p>
 
                 </div>
@@ -614,11 +587,9 @@
             </div>
 
 
-            <!-- ADMIN ADD MEMBER -->
+            <!-- ADD MEMBER -->
 
-            <div
-                    class="card"
-                    th:if="${isAdmin}">
+            <div class="card">
 
                 <div class="card-header">
 
@@ -637,9 +608,8 @@
                 </div>
 
 
-                <form
-                        th:action="@{/member/add}"
-                        method="post">
+                <form th:action="@{/member/add}"
+                      method="post">
 
                     <div class="form-group">
 
@@ -647,16 +617,15 @@
                             Member Name
                         </label>
 
-                        <input
-                                type="text"
-                                name="name"
-                                placeholder="Enter member name"
-                                required>
+                        <input type="text"
+                               name="name"
+                               placeholder="Enter member name"
+                               required>
 
                     </div>
 
-                    <button
-                            class="primary"
+
+                    <button class="primary"
                             type="submit">
 
                         Add Member
@@ -689,28 +658,15 @@
                 </div>
 
 
-                <div
-                        class="empty"
-                        th:if="${#lists.isEmpty(activeMembers)}">
-
-                    No active members.
-
-                </div>
-
-
-                <div
-                        class="member-row"
-                        th:each="member : ${members}"
-                        th:if="${member.active}">
+                <div class="member-row"
+                     th:each="member : ${members}"
+                     th:if="${member.active}">
 
 
                     <div class="avatar">
 
-                        <span
-                                th:text="${#strings.substring(member.name,0,1)}">
-
+                        <span th:text="${#strings.substring(member.name,0,1)}">
                             M
-
                         </span>
 
                     </div>
@@ -722,34 +678,19 @@
                             Member
                         </strong>
 
-                        <small
-                                class="admin-text"
-                                th:if="${member.admin}">
-
-                            Room Admin
-
-                        </small>
-
-                        <small
-                                class="online"
-                                th:unless="${member.admin}">
-
+                        <small class="online">
                             ● Active
-
                         </small>
 
                     </div>
 
 
-                    <form
-                            th:if="${isAdmin and !member.admin}"
-                            th:action="@{/member/remove/{id}(id=${member.id})}"
-                            method="post"
-                            onsubmit="return confirm('Remove this member from active room list? Old history will remain safe.');">
+                    <form th:if="${currentMemberId != member.id}"
+                          th:action="@{/member/remove/{id}(id=${member.id})}"
+                          method="post"
+                          onsubmit="return confirm('Remove this member? Old history will remain safe.');">
 
-
-                        <button
-                                class="remove-btn"
+                        <button class="remove-btn"
                                 type="submit">
 
                             Remove
@@ -765,9 +706,7 @@
 
             <!-- OLD MEMBERS -->
 
-            <div
-                    class="card"
-                    th:if="${isAdmin}">
+            <div class="card">
 
                 <div class="card-header">
 
@@ -778,7 +717,7 @@
                         </h3>
 
                         <p>
-                            Removed members. Their old history is still safe.
+                            Removed members. Old history is still safe.
                         </p>
 
                     </div>
@@ -786,19 +725,15 @@
                 </div>
 
 
-                <div
-                        class="member-row"
-                        th:each="member : ${members}"
-                        th:if="${!member.active}">
+                <div class="member-row"
+                     th:each="member : ${members}"
+                     th:if="${!member.active}">
 
 
                     <div class="avatar inactive-avatar">
 
-                        <span
-                                th:text="${#strings.substring(member.name,0,1)}">
-
+                        <span th:text="${#strings.substring(member.name,0,1)}">
                             M
-
                         </span>
 
                     </div>
@@ -817,12 +752,10 @@
                     </div>
 
 
-                    <form
-                            th:action="@{/member/restore/{id}(id=${member.id})}"
-                            method="post">
+                    <form th:action="@{/member/restore/{id}(id=${member.id})}"
+                          method="post">
 
-                        <button
-                                class="restore-btn"
+                        <button class="restore-btn"
                                 type="submit">
 
                             Restore
@@ -838,13 +771,12 @@
         </section>
 
 
-        <!-- ========================= -->
+        <!-- ================================================= -->
         <!-- ATTENDANCE -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="attendance"
-                class="page">
+        <section id="attendance"
+                 class="page">
 
             <div class="page-header">
 
@@ -855,7 +787,7 @@
                     </h1>
 
                     <p>
-                        Select who is staying in the room today.
+                        Select who is staying in the room.
                     </p>
 
                 </div>
@@ -865,9 +797,8 @@
 
             <div class="card">
 
-                <form
-                        th:action="@{/attendance/save}"
-                        method="post">
+                <form th:action="@{/attendance/save}"
+                      method="post">
 
 
                     <div class="form-group">
@@ -876,31 +807,24 @@
                             Date
                         </label>
 
-                        <input
-                                type="date"
-                                name="attendanceDate"
-                                th:value="${today}"
-                                required>
+                        <input type="date"
+                               name="attendanceDate"
+                               th:value="${today}"
+                               required>
 
                     </div>
 
 
-                    <h4 class="small-title">
-                        Present Members
-                    </h4>
-
-
                     <div class="member-select-grid">
 
-                        <label
-                                class="member-check"
-                                th:each="member : ${activeMembers}">
 
-                            <input
-                                    type="checkbox"
-                                    name="presentIds"
-                                    th:value="${member.id}"
-                                    th:checked="${presentIds.contains(member.id)}">
+                        <label class="member-check"
+                               th:each="member : ${activeMembers}">
+
+                            <input type="checkbox"
+                                   name="presentIds"
+                                   th:value="${member.id}"
+                                   th:checked="${presentIds.contains(member.id)}">
 
 
                             <div>
@@ -920,8 +844,7 @@
                     </div>
 
 
-                    <button
-                            class="primary large"
+                    <button class="primary large"
                             type="submit">
 
                         Save Attendance
@@ -935,13 +858,12 @@
         </section>
 
 
-        <!-- ========================= -->
+        <!-- ================================================= -->
         <!-- ADD EXPENSE -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="expense"
-                class="page">
+        <section id="expense"
+                 class="page">
 
             <div class="page-header">
 
@@ -962,9 +884,8 @@
 
             <div class="card">
 
-                <form
-                        th:action="@{/expense/add}"
-                        method="post">
+                <form th:action="@{/expense/add}"
+                      method="post">
 
 
                     <div class="form-grid">
@@ -976,16 +897,15 @@
                                 Who Paid?
                             </label>
 
-                            <select
-                                    name="paidById"
+                            <select name="paidById"
                                     required>
 
                                 <option value="">
                                     Select member
                                 </option>
 
-                                <option
-                                        th:each="member : ${activeMembers}"
+
+                                <option th:each="member : ${activeMembers}"
                                         th:value="${member.id}"
                                         th:text="${member.name}">
                                 </option>
@@ -1001,11 +921,10 @@
                                 Expense Date
                             </label>
 
-                            <input
-                                    type="date"
-                                    name="expenseDate"
-                                    th:value="${today}"
-                                    required>
+                            <input type="date"
+                                   name="expenseDate"
+                                   th:value="${today}"
+                                   required>
 
                         </div>
 
@@ -1018,11 +937,10 @@
                             Expense Name
                         </label>
 
-                        <input
-                                type="text"
-                                name="itemName"
-                                placeholder="Curry / Rice / Rent / Electricity / Wi-Fi"
-                                required>
+                        <input type="text"
+                               name="itemName"
+                               placeholder="Rice / Curry / Rent / Electricity / Wi-Fi"
+                               required>
 
                     </div>
 
@@ -1039,13 +957,12 @@
                                 ₹
                             </span>
 
-                            <input
-                                    type="number"
-                                    name="amount"
-                                    min="0.01"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    required>
+                            <input type="number"
+                                   name="amount"
+                                   min="0.01"
+                                   step="0.01"
+                                   placeholder="0.00"
+                                   required>
 
                         </div>
 
@@ -1058,8 +975,7 @@
                             Who Should Share?
                         </label>
 
-                        <select
-                                id="splitMode"
+                        <select id="splitMode"
                                 name="splitMode"
                                 onchange="showSelected()"
                                 required>
@@ -1081,9 +997,8 @@
                     </div>
 
 
-                    <div
-                            id="selectedBox"
-                            class="manual-box">
+                    <div id="selectedBox"
+                         class="manual-box">
 
                         <h4>
                             Select Members
@@ -1092,14 +1007,12 @@
 
                         <div class="member-select-grid">
 
-                            <label
-                                    class="member-check"
-                                    th:each="member : ${activeMembers}">
+                            <label class="member-check"
+                                   th:each="member : ${activeMembers}">
 
-                                <input
-                                        type="checkbox"
-                                        name="selectedIds"
-                                        th:value="${member.id}">
+                                <input type="checkbox"
+                                       name="selectedIds"
+                                       th:value="${member.id}">
 
                                 <div>
 
@@ -1120,8 +1033,7 @@
                     </div>
 
 
-                    <button
-                            class="primary large"
+                    <button class="primary large"
                             type="submit">
 
                         Save Expense
@@ -1135,13 +1047,12 @@
         </section>
 
 
-        <!-- ========================= -->
+        <!-- ================================================= -->
         <!-- BALANCE -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="balance"
-                class="page">
+        <section id="balance"
+                 class="page">
 
             <div class="page-header">
 
@@ -1152,13 +1063,15 @@
                     </h1>
 
                     <p>
-                        Monthly paid, share and settlement.
+                        Monthly balance and completed payments.
                     </p>
 
                 </div>
 
             </div>
 
+
+            <!-- MEMBER BALANCES -->
 
             <div class="card">
 
@@ -1167,26 +1080,26 @@
                     <div>
 
                         <h3>
-                            Member Balances
+                            💰 Member Balances
                         </h3>
+
+                        <p>
+                            Paid, share and current balance.
+                        </p>
 
                     </div>
 
                 </div>
 
 
-                <div
-                        class="balance-row"
-                        th:each="b : ${balances}">
+                <div class="balance-row"
+                     th:each="b : ${balances}">
 
 
                     <div class="avatar">
 
-                        <span
-                                th:text="${#strings.substring(b.name,0,1)}">
-
+                        <span th:text="${#strings.substring(b.name,0,1)}">
                             M
-
                         </span>
 
                     </div>
@@ -1215,9 +1128,8 @@
                     </div>
 
 
-                    <span
-                            class="get"
-                            th:if="${b.status == 'GET'}">
+                    <span class="get"
+                          th:if="${b.status == 'GET'}">
 
                         RECEIVE ₹<span th:text="${b.amount}">
                             0
@@ -1226,9 +1138,8 @@
                     </span>
 
 
-                    <span
-                            class="pay"
-                            th:if="${b.status == 'PAY'}">
+                    <span class="pay"
+                          th:if="${b.status == 'PAY'}">
 
                         PAY ₹<span th:text="${b.amount}">
                             0
@@ -1237,9 +1148,8 @@
                     </span>
 
 
-                    <span
-                            class="settled"
-                            th:if="${b.status == 'SETTLED'}">
+                    <span class="settled"
+                          th:if="${b.status == 'SETTLED'}">
 
                         SETTLED
 
@@ -1250,7 +1160,7 @@
             </div>
 
 
-            <!-- EXACT SETTLEMENT -->
+            <!-- WHO PAYS WHOM -->
 
             <div class="card">
 
@@ -1263,7 +1173,7 @@
                         </h3>
 
                         <p>
-                            Exact settlement suggestions.
+                            After payment is completed, press Paid.
                         </p>
 
                     </div>
@@ -1271,35 +1181,156 @@
                 </div>
 
 
-                <div
-                        class="empty"
-                        th:if="${#lists.isEmpty(settlements)}">
+                <div class="empty"
+                     th:if="${#lists.isEmpty(settlements)}">
 
-                    Everyone is settled.
+                    🎉 Everyone is settled.
 
                 </div>
 
 
-                <div
-                        class="settlement-row"
-                        th:each="s : ${settlements}">
+                <div class="settlement-row"
+                     th:each="s : ${settlements}">
 
-                    <strong th:text="${s.fromName}">
-                        Ravi
-                    </strong>
 
-                    <span>
-                        pays
-                    </span>
+                    <div class="settlement-text">
 
-                    <strong th:text="${s.toName}">
-                        Yasin
-                    </strong>
+                        <strong th:text="${s.fromName}">
+                            Ravi
+                        </strong>
 
-                    <span class="settlement-money">
+                        <span>
+                            pays
+                        </span>
 
-                        ₹<span th:text="${s.amount}">
-                            100
+                        <strong th:text="${s.toName}">
+                            Yasin
+                        </strong>
+
+
+                        <span class="settlement-money">
+
+                            ₹<span th:text="${s.amount}">
+                                100
+                            </span>
+
+                        </span>
+
+                    </div>
+
+
+                    <form th:action="@{/settlement/paid}"
+                          method="post"
+                          onsubmit="return confirm('Confirm that this payment was completed?');">
+
+
+                        <input type="hidden"
+                               name="fromMemberId"
+                               th:value="${s.fromMemberId}">
+
+
+                        <input type="hidden"
+                               name="toMemberId"
+                               th:value="${s.toMemberId}">
+
+
+                        <input type="hidden"
+                               name="amount"
+                               th:value="${s.amount}">
+
+
+                        <button class="paid-btn"
+                                type="submit">
+
+                            ✓ Paid
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+
+            <!-- PAYMENT HISTORY -->
+
+            <div class="card">
+
+                <div class="card-header">
+
+                    <div>
+
+                        <h3>
+                            ✅ Payment History
+                        </h3>
+
+                        <p>
+                            Everyone in this room can see it.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="empty"
+                     th:if="${#lists.isEmpty(settlementHistory)}">
+
+                    No completed payments yet.
+
+                </div>
+
+
+                <div class="payment-history-row"
+                     th:each="payment : ${settlementHistory}">
+
+
+                    <div>
+
+                        <strong>
+
+                            <span th:text="${payment.fromName}">
+                                Ravi
+                            </span>
+
+                            →
+
+                            <span th:text="${payment.toName}">
+                                Yasin
+                            </span>
+
+                        </strong>
+
+
+                        <small>
+
+                            Paid at
+
+                            <span th:text="${payment.paidAt}">
+                                Date
+                            </span>
+
+                        </small>
+
+
+                        <small>
+
+                            Marked by
+
+                            <span th:text="${payment.recordedBy}">
+                                Member
+                            </span>
+
+                        </small>
+
+                    </div>
+
+
+                    <span class="paid-status">
+
+                        PAID ₹<span th:text="${payment.amount}">
+                            0
                         </span>
 
                     </span>
@@ -1311,13 +1342,12 @@
         </section>
 
 
-        <!-- ========================= -->
-        <!-- HISTORY -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
+        <!-- EXPENSE HISTORY -->
+        <!-- ================================================= -->
 
-        <section
-                id="history"
-                class="page">
+        <section id="history"
+                 class="page">
 
             <div class="page-header">
 
@@ -1328,7 +1358,7 @@
                     </h1>
 
                     <p>
-                        Previous expenses in this room.
+                        Only this room's expenses are shown.
                     </p>
 
                 </div>
@@ -1339,18 +1369,16 @@
             <div class="card">
 
 
-                <div
-                        class="empty"
-                        th:if="${#lists.isEmpty(expenses)}">
+                <div class="empty"
+                     th:if="${#lists.isEmpty(expenses)}">
 
                     No expenses yet.
 
                 </div>
 
 
-                <div
-                        class="history-row"
-                        th:each="expense : ${expenses}">
+                <div class="history-row"
+                     th:each="expense : ${expenses}">
 
 
                     <div class="history-icon">
@@ -1363,6 +1391,7 @@
                         <strong th:text="${expense.itemName}">
                             Expense
                         </strong>
+
 
                         <small>
 
@@ -1380,9 +1409,11 @@
 
                         </small>
 
+
                         <small>
 
                             Split:
+
                             <span th:text="${expense.splitMode}">
                                 PRESENT
                             </span>
@@ -1403,15 +1434,12 @@
                         </strong>
 
 
-                        <form
-                                th:if="${isAdmin}"
-                                th:action="@{/expense/delete/{id}(id=${expense.id})}"
-                                method="post"
-                                onsubmit="return confirm('Move this expense to Deleted History? It will not be permanently erased.');">
+                        <form th:action="@{/expense/delete/{id}(id=${expense.id})}"
+                              method="post"
+                              onsubmit="return confirm('Move this expense to Deleted History? It will NOT be permanently deleted.');">
 
 
-                            <button
-                                    class="delete-btn"
+                            <button class="delete-btn"
                                     type="submit">
 
                                 Remove
@@ -1429,14 +1457,12 @@
         </section>
 
 
-        <!-- ========================= -->
+        <!-- ================================================= -->
         <!-- DELETED HISTORY -->
-        <!-- ========================= -->
+        <!-- ================================================= -->
 
-        <section
-                id="deleted"
-                class="page"
-                th:if="${isAdmin}">
+        <section id="deleted"
+                 class="page">
 
             <div class="page-header">
 
@@ -1447,7 +1473,7 @@
                     </h1>
 
                     <p>
-                        Audit log. Deleted records remain recoverable.
+                        Nothing is silently erased.
                     </p>
 
                 </div>
@@ -1458,18 +1484,16 @@
             <div class="card">
 
 
-                <div
-                        class="empty"
-                        th:if="${#lists.isEmpty(deletedExpenses)}">
+                <div class="empty"
+                     th:if="${#lists.isEmpty(deletedExpenses)}">
 
                     No deleted expenses.
 
                 </div>
 
 
-                <div
-                        class="deleted-row"
-                        th:each="expense : ${deletedExpenses}">
+                <div class="deleted-row"
+                     th:each="expense : ${deletedExpenses}">
 
 
                     <div>
@@ -1477,6 +1501,7 @@
                         <strong th:text="${expense.itemName}">
                             Expense
                         </strong>
+
 
                         <small>
 
@@ -1489,10 +1514,11 @@
                             Deleted by
 
                             <span th:text="${expense.deletedBy}">
-                                Admin
+                                Member
                             </span>
 
                         </small>
+
 
                         <small>
 
@@ -1507,12 +1533,10 @@
                     </div>
 
 
-                    <form
-                            th:action="@{/expense/restore/{id}(id=${expense.id})}"
-                            method="post">
+                    <form th:action="@{/expense/restore/{id}(id=${expense.id})}"
+                          method="post">
 
-                        <button
-                                class="restore-btn"
+                        <button class="restore-btn"
                                 type="submit">
 
                             Restore
@@ -1527,68 +1551,6 @@
 
         </section>
 
-
-        <!-- ========================= -->
-        <!-- ADMIN LOGIN -->
-        <!-- ========================= -->
-
-        <section
-                id="admin"
-                class="page"
-                th:unless="${isAdmin}">
-
-            <div class="page-header">
-
-                <div>
-
-                    <h1>
-                        Admin Access
-                    </h1>
-
-                    <p>
-                        Enter the room admin PIN.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            <div class="card admin-card">
-
-                <form
-                        th:action="@{/admin/login}"
-                        method="post">
-
-                    <div class="form-group">
-
-                        <label>
-                            Admin PIN
-                        </label>
-
-                        <input
-                                type="password"
-                                name="adminPin"
-                                placeholder="Enter admin PIN"
-                                required>
-
-                    </div>
-
-
-                    <button
-                            class="primary large"
-                            type="submit">
-
-                        Enable Admin Access
-
-                    </button>
-
-                </form>
-
-            </div>
-
-        </section>
-
     </main>
 
 </div>
@@ -1597,4 +1559,5 @@
 <script th:src="@{/app.js}"></script>
 
 </body>
+
 </html>

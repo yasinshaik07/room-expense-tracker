@@ -11,18 +11,18 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             String roomCode
     );
 
+    List<Expense> findByRoomCodeAndDeletedTrueOrderByDeletedAtDesc(
+            String roomCode
+    );
+
     List<Expense> findByRoomCodeAndDeletedFalseAndExpenseDate(
             String roomCode,
-            LocalDate date
+            LocalDate expenseDate
     );
 
     List<Expense> findByRoomCodeAndDeletedFalseAndExpenseDateBetween(
             String roomCode,
-            LocalDate start,
-            LocalDate end
-    );
-
-    List<Expense> findByRoomCodeAndDeletedTrueOrderByDeletedAtDesc(
-            String roomCode
+            LocalDate startDate,
+            LocalDate endDate
     );
 }

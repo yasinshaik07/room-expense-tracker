@@ -16,9 +16,16 @@ public class Member {
     @Column(nullable = false)
     private String roomCode;
 
+    @Column(nullable = false)
     private boolean active = true;
 
+    // Database compatibility kosam matrame
+    // App lo andariki equal rights
+    @Column(nullable = false)
     private boolean admin = false;
+
+    @Column(nullable = false)
+    private boolean presentToday = false;
 
     public Member() {
     }
@@ -43,6 +50,10 @@ public class Member {
         return admin;
     }
 
+    public boolean isPresentToday() {
+        return presentToday;
+    }
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -61,5 +72,9 @@ public class Member {
 
     public void setAdmin(boolean admin) {
         this.admin = admin;
+    }
+
+    public void setPresentToday(boolean presentToday) {
+        this.presentToday = presentToday;
     }
 }
