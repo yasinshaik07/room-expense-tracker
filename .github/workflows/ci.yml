@@ -1,4 +1,4 @@
-name: Java CI with Docker
+name: Room Expense Tracker CI/CD
 
 on:
   push:
@@ -9,8 +9,13 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  build:
+
+  build-and-publish:
 
     runs-on: ubuntu-latest
 
@@ -29,8 +34,34 @@ jobs:
       - name: Give Maven Permission
         run: chmod +x mvnw
 
-      - name: Build Project
+      - name: Build Java Project
         run: ./mvnw clean package -DskipTests
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker Image
-        run: docker build -t room-expense-tracker .
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: room-expense-tracker:test
+
+      - name: Build and Publish Docker Image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/room-expense-tracker:latest
+            ghcr.io/${{ github.repository_owner }}/room-expense-tracker:${{ github.sha }}
