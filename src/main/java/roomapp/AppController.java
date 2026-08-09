@@ -22,17 +22,20 @@ public class AppController {
     private final MemberRepo memberRepo;
     private final ExpenseRepo expenseRepo;
     private final AttendanceRepo attendanceRepo;
+    private final SettlementRepo settlementRepo;
 
     public AppController(
             RoomRepo roomRepo,
             MemberRepo memberRepo,
             ExpenseRepo expenseRepo,
-            AttendanceRepo attendanceRepo) {
+            AttendanceRepo attendanceRepo,
+            SettlementRepo settlementRepo) {
 
         this.roomRepo = roomRepo;
         this.memberRepo = memberRepo;
         this.expenseRepo = expenseRepo;
         this.attendanceRepo = attendanceRepo;
+        this.settlementRepo = settlementRepo;
     }
 
     // =========================
@@ -73,6 +76,11 @@ public class AppController {
         model.addAttribute(
                 "currentMemberName",
                 session.getAttribute("memberName")
+        );
+
+        model.addAttribute(
+                "currentMemberId",
+                session.getAttribute("memberId")
         );
 
         boolean isAdmin =
@@ -145,17 +153,18 @@ public class AppController {
         BigDecimal monthTotal =
                 getTotal(monthExpenses);
 
+        List<Settlement> settlementHistory =
+                settlementRepo.findByRoomCodeOrderByPaidAtDesc(roomCode);
+
         List<BalanceView> balances =
                 calculateBalances(
                         members,
-                        monthExpenses
+                        monthExpenses,
+                        settlementHistory
                 );
 
         List<SettlementView> settlements =
-                calculateSettlements(
-                        members,
-                        monthExpenses
-                );
+                calculatePendingSettlements(balances);
 
         List<Expense> history =
                 expenseRepo
@@ -217,6 +226,11 @@ public class AppController {
         model.addAttribute(
                 "settlements",
                 settlements
+        );
+
+        model.addAttribute(
+                "settlementHistory",
+                settlementHistory
         );
 
         model.addAttribute(
@@ -1109,6 +1123,100 @@ public class AppController {
 
 
     // =========================
+    // MARK SETTLEMENT AS PAID
+    // =========================
+
+    @PostMapping("/settlement/paid")
+    public String markSettlementPaid(
+
+            @RequestParam Long fromMemberId,
+            @RequestParam Long toMemberId,
+            @RequestParam BigDecimal amount,
+
+            HttpSession session,
+            RedirectAttributes redirect) {
+
+        String roomCode = getRoomCode(session);
+
+        if (roomCode == null) {
+            return "redirect:/";
+        }
+
+        Long currentMemberId =
+                (Long) session.getAttribute("memberId");
+
+        if (!isAdmin(session) &&
+                !Objects.equals(currentMemberId, fromMemberId)) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Only the person who pays can mark this payment as Paid."
+            );
+
+            return "redirect:/";
+        }
+
+        Member fromMember =
+                memberRepo.findById(fromMemberId).orElse(null);
+
+        Member toMember =
+                memberRepo.findById(toMemberId).orElse(null);
+
+        if (fromMember == null ||
+                toMember == null ||
+                !Objects.equals(fromMember.getRoomCode(), roomCode) ||
+                !Objects.equals(toMember.getRoomCode(), roomCode)) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Invalid settlement."
+            );
+
+            return "redirect:/";
+        }
+
+        if (amount == null ||
+                amount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Invalid payment amount."
+            );
+
+            return "redirect:/";
+        }
+
+        Settlement settlement = new Settlement();
+
+        settlement.setRoomCode(roomCode);
+        settlement.setFromMemberId(fromMember.getId());
+        settlement.setFromName(fromMember.getName());
+        settlement.setToMemberId(toMember.getId());
+        settlement.setToName(toMember.getName());
+        settlement.setAmount(
+                amount.setScale(2, RoundingMode.HALF_UP)
+        );
+        settlement.setPaidAt(LocalDateTime.now());
+        settlement.setRecordedBy(
+                String.valueOf(session.getAttribute("memberName"))
+        );
+
+        settlementRepo.save(settlement);
+
+        redirect.addFlashAttribute(
+                "success",
+                fromMember.getName()
+                        + " paid ₹"
+                        + amount
+                        + " to "
+                        + toMember.getName()
+        );
+
+        return "redirect:/";
+    }
+
+
+    // =========================
     // SHARE MEMBERS
     // =========================
 
@@ -1282,79 +1390,50 @@ public class AppController {
     private List<BalanceView> calculateBalances(
 
             List<Member> members,
-            List<Expense> expenses) {
+            List<Expense> expenses,
+            List<Settlement> settlementHistory) {
 
-        Map<Long, BigDecimal> paidMap =
-                new HashMap<>();
+        Map<Long, BigDecimal> paidMap = new HashMap<>();
+        Map<Long, BigDecimal> shareMap = new HashMap<>();
 
-        Map<Long, BigDecimal> shareMap =
-                new HashMap<>();
+        for (Expense expense : expenses) {
 
-
-        for (Expense expense :
-                expenses) {
-
-            Long payerId =
-                    expense.getPaidById();
+            Long payerId = expense.getPaidById();
 
             paidMap.put(
                     payerId,
-
-                    paidMap.getOrDefault(
-                            payerId,
-                            BigDecimal.ZERO
-                    ).add(
-                            expense.getAmount()
-                    )
+                    paidMap.getOrDefault(payerId, BigDecimal.ZERO)
+                            .add(expense.getAmount())
             );
 
-
             List<Long> shareIds =
-                    parseIds(
-                            expense.getSharedMemberIds()
-                    );
+                    parseIds(expense.getSharedMemberIds());
 
             if (shareIds.isEmpty()) {
                 continue;
             }
 
-
             long totalPaise =
-                    expense
-                            .getAmount()
+                    expense.getAmount()
                             .movePointRight(2)
                             .longValue();
 
-            long base =
-                    totalPaise /
-                            shareIds.size();
+            long base = totalPaise / shareIds.size();
+            long remainder = totalPaise % shareIds.size();
 
-            long remainder =
-                    totalPaise %
-                            shareIds.size();
-
-
-            for (int i = 0;
-                 i < shareIds.size();
-                 i++) {
+            for (int i = 0; i < shareIds.size(); i++) {
 
                 long paise =
-                        base +
-                                (i < remainder
-                                        ? 1
-                                        : 0);
+                        base + (i < remainder ? 1 : 0);
 
                 BigDecimal share =
-                        BigDecimal
-                                .valueOf(paise)
+                        BigDecimal.valueOf(paise)
                                 .movePointLeft(2);
 
-                Long memberId =
-                        shareIds.get(i);
+                Long memberId = shareIds.get(i);
 
                 shareMap.put(
                         memberId,
-
                         shareMap.getOrDefault(
                                 memberId,
                                 BigDecimal.ZERO
@@ -1363,13 +1442,60 @@ public class AppController {
             }
         }
 
+        Map<Long, BigDecimal> balanceMap =
+                new HashMap<>();
 
-        List<BalanceView> result =
-                new ArrayList<>();
+        for (Member member : members) {
 
+            BigDecimal paid =
+                    paidMap.getOrDefault(
+                            member.getId(),
+                            BigDecimal.ZERO
+                    );
 
-        for (Member member :
-                members) {
+            BigDecimal share =
+                    shareMap.getOrDefault(
+                            member.getId(),
+                            BigDecimal.ZERO
+                    );
+
+            balanceMap.put(
+                    member.getId(),
+                    paid.subtract(share)
+            );
+        }
+
+        // Completed payments reduce the pending balances.
+        for (Settlement settlement : settlementHistory) {
+
+            Long fromId = settlement.getFromMemberId();
+            Long toId = settlement.getToMemberId();
+            BigDecimal amount = settlement.getAmount();
+
+            if (fromId == null || toId == null || amount == null) {
+                continue;
+            }
+
+            balanceMap.put(
+                    fromId,
+                    balanceMap.getOrDefault(
+                            fromId,
+                            BigDecimal.ZERO
+                    ).add(amount)
+            );
+
+            balanceMap.put(
+                    toId,
+                    balanceMap.getOrDefault(
+                            toId,
+                            BigDecimal.ZERO
+                    ).subtract(amount)
+            );
+        }
+
+        List<BalanceView> result = new ArrayList<>();
+
+        for (Member member : members) {
 
             BigDecimal paid =
                     paidMap.getOrDefault(
@@ -1384,14 +1510,15 @@ public class AppController {
                     );
 
             BigDecimal balance =
-                    paid.subtract(share);
-
+                    balanceMap.getOrDefault(
+                            member.getId(),
+                            BigDecimal.ZERO
+                    );
 
             if (member.isActive() ||
-                    paid.compareTo(
-                            BigDecimal.ZERO) != 0 ||
-                    share.compareTo(
-                            BigDecimal.ZERO) != 0) {
+                    paid.compareTo(BigDecimal.ZERO) != 0 ||
+                    share.compareTo(BigDecimal.ZERO) != 0 ||
+                    balance.compareTo(BigDecimal.ZERO) != 0) {
 
                 result.add(
                         new BalanceView(
@@ -1413,84 +1540,61 @@ public class AppController {
     // EXACT SETTLEMENT
     // =========================
 
-    private List<SettlementView> calculateSettlements(
+    private List<SettlementView> calculatePendingSettlements(
+            List<BalanceView> balances) {
 
-            List<Member> members,
-            List<Expense> expenses) {
+        List<BalanceTemp> payers = new ArrayList<>();
+        List<BalanceTemp> receivers = new ArrayList<>();
 
-        List<BalanceView> balances =
-                calculateBalances(
-                        members,
-                        expenses
-                );
+        for (BalanceView balance : balances) {
 
-
-        List<BalanceTemp> payers =
-                new ArrayList<>();
-
-        List<BalanceTemp> receivers =
-                new ArrayList<>();
-
-
-        for (BalanceView balance :
-                balances) {
-
-            if (balance.balance
-                    .compareTo(
-                            BigDecimal.ZERO
-                    ) < 0) {
+            if (balance.balance.compareTo(BigDecimal.ZERO) < 0) {
 
                 payers.add(
                         new BalanceTemp(
+                                balance.memberId,
                                 balance.name,
-                                balance.balance
-                                        .abs()
-                )
+                                balance.balance.abs()
+                        )
                 );
             }
 
-            if (balance.balance
-                    .compareTo(
-                            BigDecimal.ZERO
-                    ) > 0) {
+            if (balance.balance.compareTo(BigDecimal.ZERO) > 0) {
 
                 receivers.add(
                         new BalanceTemp(
+                                balance.memberId,
                                 balance.name,
                                 balance.balance
-                )
+                        )
                 );
             }
         }
 
+        List<SettlementView> result = new ArrayList<>();
 
-        List<SettlementView> result =
-                new ArrayList<>();
+        int payerIndex = 0;
+        int receiverIndex = 0;
 
-        int i = 0;
-        int j = 0;
-
-
-        while (i < payers.size() &&
-                j < receivers.size()) {
+        while (payerIndex < payers.size() &&
+                receiverIndex < receivers.size()) {
 
             BalanceTemp payer =
-                    payers.get(i);
+                    payers.get(payerIndex);
 
             BalanceTemp receiver =
-                    receivers.get(j);
+                    receivers.get(receiverIndex);
 
             BigDecimal amount =
-                    payer.amount.min(
-                            receiver.amount
-                    );
+                    payer.amount.min(receiver.amount);
 
-            if (amount.compareTo(
-                    BigDecimal.ZERO) > 0) {
+            if (amount.compareTo(BigDecimal.ZERO) > 0) {
 
                 result.add(
                         new SettlementView(
+                                payer.memberId,
                                 payer.name,
+                                receiver.memberId,
                                 receiver.name,
                                 amount
                         )
@@ -1498,30 +1602,17 @@ public class AppController {
             }
 
             payer.amount =
-                    payer.amount.subtract(
-                            amount
-                    );
+                    payer.amount.subtract(amount);
 
             receiver.amount =
-                    receiver.amount.subtract(
-                            amount
-                    );
+                    receiver.amount.subtract(amount);
 
-
-            if (payer.amount
-                    .compareTo(
-                            BigDecimal.ZERO
-                    ) == 0) {
-
-                i++;
+            if (payer.amount.compareTo(BigDecimal.ZERO) == 0) {
+                payerIndex++;
             }
 
-            if (receiver.amount
-                    .compareTo(
-                            BigDecimal.ZERO
-                    ) == 0) {
-
-                j++;
+            if (receiver.amount.compareTo(BigDecimal.ZERO) == 0) {
+                receiverIndex++;
             }
         }
 
@@ -1672,27 +1763,36 @@ public class AppController {
 
     public static class SettlementView {
 
+        private final Long fromMemberId;
         private final String fromName;
+        private final Long toMemberId;
         private final String toName;
         private final BigDecimal amount;
 
         public SettlementView(
+                Long fromMemberId,
                 String fromName,
+                Long toMemberId,
                 String toName,
                 BigDecimal amount) {
 
-            this.fromName =
-                    fromName;
+            this.fromMemberId = fromMemberId;
+            this.fromName = fromName;
+            this.toMemberId = toMemberId;
+            this.toName = toName;
+            this.amount = amount;
+        }
 
-            this.toName =
-                    toName;
-
-            this.amount =
-                    amount;
+        public Long getFromMemberId() {
+            return fromMemberId;
         }
 
         public String getFromName() {
             return fromName;
+        }
+
+        public Long getToMemberId() {
+            return toMemberId;
         }
 
         public String getToName() {
@@ -1707,18 +1807,19 @@ public class AppController {
 
     private static class BalanceTemp {
 
+        private final Long memberId;
         private final String name;
         private BigDecimal amount;
 
         public BalanceTemp(
+                Long memberId,
                 String name,
                 BigDecimal amount) {
 
-            this.name =
-                    name;
-
-            this.amount =
-                    amount;
+            this.memberId = memberId;
+            this.name = name;
+            this.amount = amount;
         }
     }
+
 }
