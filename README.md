@@ -1,8 +1,8 @@
-\# 🏠 Room Expense Tracker
+\# Room Expense Tracker
 
 
 
-A full-stack \*\*Room Expense Tracker\*\* application built using Java and Spring Boot with a complete DevOps workflow.
+A full-stack Room Expense Tracker application built with Java and Spring Boot, integrated with a complete DevOps workflow.
 
 
 
@@ -10,7 +10,7 @@ The application helps roommates manage shared expenses, members, payments, balan
 
 
 
-\## 🚀 Live Application
+\## Live Application
 
 
 
@@ -18,13 +18,13 @@ https://room-expense-tracker-mzm9.onrender.com
 
 
 
-\## ✨ Features
+\## Features
 
 
 
 \- Create and manage rooms
 
-\- Join using room code
+\- Join using a room code
 
 \- Add room members
 
@@ -34,21 +34,21 @@ https://room-expense-tracker-mzm9.onrender.com
 
 \- Calculate member balances
 
-\- Track payments
+\- Track payments and settlements
 
-\- Payment history
+\- View payment history
 
-\- Expense history
+\- View expense history
 
 \- Restore deleted expenses
 
 \- Room-wise data management
 
-\- Persistent database storage
+\- Persistent cloud database storage
 
 
 
-\## 🛠 Tech Stack
+\## Tech Stack
 
 
 
@@ -96,8 +96,6 @@ https://room-expense-tracker-mzm9.onrender.com
 
 \- GitHub Actions
 
-\- Maven
-
 \- Docker
 
 \- GitHub Container Registry (GHCR)
@@ -116,7 +114,7 @@ https://room-expense-tracker-mzm9.onrender.com
 
 
 
-\## 🔄 DevOps Workflow
+\## DevOps Architecture
 
 
 
@@ -124,85 +122,127 @@ https://room-expense-tracker-mzm9.onrender.com
 
 Developer
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
-Git / GitHub
+Git \& GitHub
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
-GitHub Actions
+GitHub Actions CI/CD
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   +---- Maven Build
 
-Maven Build
+&#x20;   |
 
-&#x20;  |
+&#x20;   +---- Docker Build
 
-&#x20;  v
+&#x20;   |
 
-Docker Image
-
-&#x20;  |
-
-&#x20;  v
+&#x20;   v
 
 GitHub Container Registry
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  +-------------------+
+&#x20;   +----------------------+
 
-&#x20;  |                   |
+&#x20;   |                      |
 
-&#x20;  v                   v
+&#x20;   v                      v
 
-Render              Kubernetes
+Render Deployment      Kubernetes
 
-&#x20;  |                   |
+&#x20;   |                      |
 
-&#x20;  v                   v
+&#x20;   v                      v
 
-Spring Boot App     Container
+Spring Boot App        Docker Container
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
 Aiven MySQL
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
 Spring Boot Actuator
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
 Prometheus
 
-&#x20;  |
+&#x20;   |
 
-&#x20;  v
+&#x20;   v
 
-Grafana
+Grafana Dashboard
 
 ```
 
 
 
-\## 🐳 Docker
+\## CI/CD Pipeline
 
 
 
-The Spring Boot application is containerized using Docker.
+GitHub Actions automatically runs the CI/CD workflow when code is pushed to the `main` branch.
+
+
+
+```text
+
+Code Push
+
+&#x20;   |
+
+&#x20;   v
+
+GitHub Actions
+
+&#x20;   |
+
+&#x20;   v
+
+Maven Build
+
+&#x20;   |
+
+&#x20;   v
+
+Docker Build
+
+&#x20;   |
+
+&#x20;   v
+
+GitHub Container Registry
+
+&#x20;   |
+
+&#x20;   v
+
+Deployment
+
+```
+
+
+
+\## Docker
+
+
+
+The application is containerized using Docker.
 
 
 
@@ -218,11 +258,11 @@ ghcr.io/yasinshaik07/room-expense-tracker:latest
 
 
 
-\## ☸️ Kubernetes
+\## Kubernetes
 
 
 
-Kubernetes configuration:
+Kubernetes configuration is available in:
 
 
 
@@ -246,7 +286,11 @@ The project uses:
 
 \- Kubernetes Secrets
 
-\- Liveness and readiness monitoring
+\- Liveness Probe
+
+\- Readiness Probe
+
+\- GHCR Docker image
 
 
 
@@ -266,11 +310,11 @@ kubectl get svc
 
 
 
-\## 🔐 Kubernetes Secrets
+\## Kubernetes Secrets
 
 
 
-Database credentials are provided through environment variables:
+Database credentials are supplied through environment variables:
 
 
 
@@ -286,11 +330,11 @@ DB\_PASSWORD
 
 
 
-Sensitive database credentials are not stored directly in the Kubernetes deployment file.
+Sensitive database credentials are not stored directly in the Kubernetes deployment configuration.
 
 
 
-\## 🏗 Terraform
+\## Terraform
 
 
 
@@ -298,7 +342,7 @@ Terraform is used for Infrastructure as Code (IaC).
 
 
 
-Terraform configuration is available in:
+Terraform configuration:
 
 
 
@@ -310,7 +354,7 @@ terraform/
 
 
 
-Commands:
+Useful commands:
 
 
 
@@ -332,27 +376,33 @@ Terraform manages the Kubernetes `roomapp` namespace.
 
 
 
-\## 📊 Monitoring
+\## Monitoring
 
 
 
-Application monitoring is implemented using:
+Monitoring architecture:
 
 
 
 ```text
 
-Spring Boot Actuator
+Spring Boot
 
-&#x20;       |
+&#x20;   |
 
-&#x20;       v
+&#x20;   v
+
+Actuator
+
+&#x20;   |
+
+&#x20;   v
 
 Prometheus
 
-&#x20;       |
+&#x20;   |
 
-&#x20;       v
+&#x20;   v
 
 Grafana
 
@@ -408,65 +458,41 @@ Room Expense Tracker Monitoring
 
 
 
-Metrics include JVM, CPU, memory, HTTP request, database connection, and application metrics.
-
-
-
-\## 🔁 CI/CD
-
-
-
-GitHub Actions is used for CI/CD.
-
-
-
-The workflow builds the Java application and Docker image as part of the deployment process.
+Example metric:
 
 
 
 ```text
 
-Code Push
-
-&#x20;  |
-
-&#x20;  v
-
-GitHub Actions
-
-&#x20;  |
-
-&#x20;  v
-
-Maven Build
-
-&#x20;  |
-
-&#x20;  v
-
-Docker Build
-
-&#x20;  |
-
-&#x20;  v
-
-Container Registry
-
-&#x20;  |
-
-&#x20;  v
-
-Deployment
+process\_cpu\_usage
 
 ```
 
 
 
-\## ▶️ Build the Project
+Metrics include:
 
 
 
-On Windows:
+\- JVM metrics
+
+\- CPU usage
+
+\- Memory usage
+
+\- HTTP request metrics
+
+\- Database connection metrics
+
+\- Application uptime
+
+
+
+\## Build the Application
+
+
+
+Windows:
 
 
 
@@ -478,7 +504,7 @@ On Windows:
 
 
 
-\## ▶️ Run Locally
+\## Run Locally
 
 
 
@@ -490,7 +516,7 @@ On Windows:
 
 
 
-Application runs on:
+Application:
 
 
 
@@ -502,7 +528,35 @@ http://localhost:8080
 
 
 
-\## 📁 Important Project Files
+\## Health Check
+
+
+
+```text
+
+http://localhost:8080/actuator/health
+
+```
+
+
+
+Expected status:
+
+
+
+```json
+
+{
+
+&#x20; "status": "UP"
+
+}
+
+```
+
+
+
+\## Project Structure
 
 
 
@@ -510,11 +564,17 @@ http://localhost:8080
 
 roomapp/
 
-├── .github/workflows/
+├── .github/
+
+│   └── workflows/
 
 ├── src/
 
 ├── terraform/
+
+│   ├── main.tf
+
+│   └── .terraform.lock.hcl
 
 ├── Dockerfile
 
@@ -534,7 +594,7 @@ roomapp/
 
 
 
-\## 👨‍💻 Author
+\## Author
 
 
 
@@ -546,7 +606,7 @@ GitHub: https://github.com/yasinshaik07
 
 
 
-\## 📌 Repository
+\## Repository
 
 
 
