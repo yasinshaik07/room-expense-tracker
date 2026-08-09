@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 2m
+  scrape_timeout: 110s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - "localhost:9090"
+
+  - job_name: "room-expense-tracker"
+    scrape_interval: 2m
+    scrape_timeout: 110s
+    metrics_path: "/actuator/prometheus"
+    scheme: "https"
+
+    static_configs:
+      - targets:
+          - "room-expense-tracker-mzm9.onrender.com"
