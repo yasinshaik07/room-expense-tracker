@@ -35,7 +35,7 @@ public class AppController {
 
         LocalDate today = LocalDate.now();
 
-        List<Member> allMembers = memberRepo.findAll();
+        List<Member> members = memberRepo.findAll();
 
         List<Member> activeMembers =
                 memberRepo.findByActiveTrueOrderByNameAsc();
@@ -72,19 +72,12 @@ public class AppController {
 
         List<BalanceView> balances =
                 calculateBalances(
-                        allMembers,
+                        members,
                         monthExpenses
                 );
 
-        model.addAttribute(
-                "members",
-                allMembers
-        );
-
-        model.addAttribute(
-                "activeMembers",
-                activeMembers
-        );
+        model.addAttribute("members", members);
+        model.addAttribute("activeMembers", activeMembers);
 
         model.addAttribute(
                 "totalMembers",
@@ -101,34 +94,19 @@ public class AppController {
                 presentIds
         );
 
-        model.addAttribute(
-                "today",
-                today
-        );
-
-        model.addAttribute(
-                "todayTotal",
-                todayTotal
-        );
-
-        model.addAttribute(
-                "monthTotal",
-                monthTotal
-        );
-
-        model.addAttribute(
-                "balances",
-                balances
-        );
+        model.addAttribute("today", today);
+        model.addAttribute("todayTotal", todayTotal);
+        model.addAttribute("monthTotal", monthTotal);
+        model.addAttribute("balances", balances);
 
         model.addAttribute(
                 "expenses",
-                expenseRepo
-                        .findAllByOrderByExpenseDateDescIdDesc()
+                expenseRepo.findAllByOrderByExpenseDateDescIdDesc()
         );
 
         return "home";
     }
+
 
     // ADD MEMBER
 
@@ -137,12 +115,11 @@ public class AppController {
             @RequestParam String name,
             RedirectAttributes redirect) {
 
-        if (name == null ||
-                name.trim().isEmpty()) {
+        if (name == null || name.trim().isEmpty()) {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Member name enter cheyyandi."
+                    "Please enter member name."
             );
 
             return "redirect:/";
@@ -152,7 +129,6 @@ public class AppController {
 
         member.setName(name.trim());
         member.setActive(true);
-        member.setPresentToday(false);
 
         memberRepo.save(member);
 
@@ -164,6 +140,7 @@ public class AppController {
         return "redirect:/";
     }
 
+
     // ACTIVE / INACTIVE
 
     @PostMapping("/member/toggle/{id}")
@@ -171,9 +148,7 @@ public class AppController {
             @PathVariable Long id) {
 
         Member member =
-                memberRepo
-                        .findById(id)
-                        .orElse(null);
+                memberRepo.findById(id).orElse(null);
 
         if (member != null) {
 
@@ -187,7 +162,8 @@ public class AppController {
         return "redirect:/";
     }
 
-    // SAVE DATE-WISE ATTENDANCE
+
+    // ATTENDANCE
 
     @Transactional
     @PostMapping("/attendance/save")
@@ -235,13 +211,9 @@ public class AppController {
                             member.getId()
                     );
 
-            attendance.setPresent(
-                    present
-            );
+            attendance.setPresent(present);
 
-            attendanceRepo.save(
-                    attendance
-            );
+            attendanceRepo.save(attendance);
         }
 
         redirect.addFlashAttribute(
@@ -251,6 +223,7 @@ public class AppController {
 
         return "redirect:/";
     }
+
 
     // ADD EXPENSE
 
@@ -284,7 +257,7 @@ public class AppController {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Who paid select cheyyandi."
+                    "Select who paid."
             );
 
             return "redirect:/";
@@ -295,7 +268,7 @@ public class AppController {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Expense name enter cheyyandi."
+                    "Enter expense name."
             );
 
             return "redirect:/";
@@ -307,7 +280,7 @@ public class AppController {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Correct amount enter cheyyandi."
+                    "Enter correct amount."
             );
 
             return "redirect:/";
@@ -324,14 +297,13 @@ public class AppController {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Expense share members select cheyyandi."
+                    "Select members for this expense."
             );
 
             return "redirect:/";
         }
 
-        Expense expense =
-                new Expense();
+        Expense expense = new Expense();
 
         expense.setPaidById(
                 payer.getId()
@@ -371,13 +343,9 @@ public class AppController {
                         )
                         .orElse("");
 
-        expense.setSharedMemberIds(
-                ids
-        );
+        expense.setSharedMemberIds(ids);
 
-        expenseRepo.save(
-                expense
-        );
+        expenseRepo.save(expense);
 
         redirect.addFlashAttribute(
                 "success",
@@ -386,6 +354,7 @@ public class AppController {
 
         return "redirect:/";
     }
+
 
     // DELETE EXPENSE
 
@@ -400,20 +369,18 @@ public class AppController {
         return "redirect:/";
     }
 
-    // SHARE MEMBERS
+
+    // GET SHARE MEMBERS
 
     private List<Member> getShareMembers(
             String splitMode,
             LocalDate expenseDate,
             List<Long> selectedIds) {
 
-        List<Member> activeMembers =
-                memberRepo
-                        .findByActiveTrueOrderByNameAsc();
-
         if ("ALL".equals(splitMode)) {
 
-            return activeMembers;
+            return memberRepo
+                    .findByActiveTrueOrderByNameAsc();
         }
 
         if ("SELECTED".equals(splitMode)) {
@@ -461,6 +428,7 @@ public class AppController {
         return new ArrayList<>();
     }
 
+
     // TOTAL
 
     private BigDecimal getTotal(
@@ -479,7 +447,6 @@ public class AppController {
         return total;
     }
 
-    // STRING IDS -> LONG IDS
 
     private List<Long> parseIds(
             String text) {
@@ -513,6 +480,7 @@ public class AppController {
         return ids;
     }
 
+
     // BALANCE
 
     private List<BalanceView> calculateBalances(
@@ -527,14 +495,17 @@ public class AppController {
 
         for (Expense expense : expenses) {
 
+            Long payerId =
+                    expense.getPaidById();
+
             BigDecimal oldPaid =
                     paidMap.getOrDefault(
-                            expense.getPaidById(),
+                            payerId,
                             BigDecimal.ZERO
                     );
 
             paidMap.put(
-                    expense.getPaidById(),
+                    payerId,
                     oldPaid.add(
                             expense.getAmount()
                     )
@@ -542,8 +513,7 @@ public class AppController {
 
             List<Long> shareIds =
                     parseIds(
-                            expense
-                                    .getSharedMemberIds()
+                            expense.getSharedMemberIds()
                     );
 
             if (shareIds.isEmpty()) {
@@ -570,9 +540,7 @@ public class AppController {
 
                 long paise =
                         base +
-                        (i < remainder
-                                ? 1
-                                : 0);
+                        (i < remainder ? 1 : 0);
 
                 BigDecimal memberShare =
                         BigDecimal
@@ -636,6 +604,7 @@ public class AppController {
 
         return result;
     }
+
 
     public static class BalanceView {
 
