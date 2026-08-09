@@ -1,47 +1,73 @@
 function openPage(pageId, button) {
 
-    document.querySelectorAll(".page")
-        .forEach(function (page) {
-            page.classList.remove("active-page");
-        });
+    const pages =
+        document.querySelectorAll(".page");
 
-    document.querySelectorAll(".nav-btn")
-        .forEach(function (btn) {
-            btn.classList.remove("active");
-        });
+    pages.forEach(function (page) {
+        page.classList.remove("active-page");
+    });
 
-    const page = document.getElementById(pageId);
 
-    if (page) {
-        page.classList.add("active-page");
+    const buttons =
+        document.querySelectorAll(".nav-btn");
+
+    buttons.forEach(function (btn) {
+        btn.classList.remove("active");
+    });
+
+
+    const selectedPage =
+        document.getElementById(pageId);
+
+    if (selectedPage) {
+        selectedPage.classList.add("active-page");
     }
+
 
     if (button) {
         button.classList.add("active");
     }
 
-    const sidebar = document.querySelector(".sidebar");
 
-    if (window.innerWidth <= 700 && sidebar) {
+    const sidebar =
+        document.querySelector(".sidebar");
+
+    if (
+        window.innerWidth <= 760 &&
+        sidebar
+    ) {
         sidebar.classList.remove("show");
     }
+
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
 }
 
 
 function openPageByName(pageId) {
 
-    const buttons = document.querySelectorAll(".nav-btn");
+    const buttons =
+        document.querySelectorAll(".nav-btn");
 
     for (let button of buttons) {
 
         const clickText =
             button.getAttribute("onclick");
 
-        if (clickText &&
-            clickText.includes("'" + pageId + "'")) {
+        if (
+            clickText &&
+            clickText.includes("'" + pageId + "'")
+        ) {
 
-            openPage(pageId, button);
-            break;
+            openPage(
+                pageId,
+                button
+            );
+
+            return;
         }
     }
 }
@@ -60,20 +86,31 @@ function toggleMenu() {
 
 function showSelected() {
 
-    const mode =
+    const splitMode =
         document.getElementById("splitMode");
 
-    const box =
+    const selectedBox =
         document.getElementById("selectedBox");
 
-    if (!mode || !box) {
+    if (
+        !splitMode ||
+        !selectedBox
+    ) {
         return;
     }
 
-    if (mode.value === "SELECTED") {
-        box.style.display = "block";
+
+    if (
+        splitMode.value === "SELECTED"
+    ) {
+
+        selectedBox.style.display =
+            "block";
+
     } else {
-        box.style.display = "none";
+
+        selectedBox.style.display =
+            "none";
     }
 }
 
@@ -81,6 +118,37 @@ function showSelected() {
 document.addEventListener(
     "DOMContentLoaded",
     function () {
+
         showSelected();
+
+
+        document.addEventListener(
+            "click",
+            function (event) {
+
+                const sidebar =
+                    document.querySelector(".sidebar");
+
+                const menuButton =
+                    document.querySelector(".menu-btn");
+
+
+                if (
+                    window.innerWidth <= 760 &&
+                    sidebar &&
+                    sidebar.classList.contains("show")
+                ) {
+
+                    if (
+                        !sidebar.contains(event.target) &&
+                        menuButton &&
+                        !menuButton.contains(event.target)
+                    ) {
+
+                        sidebar.classList.remove("show");
+                    }
+                }
+            }
+        );
     }
 );

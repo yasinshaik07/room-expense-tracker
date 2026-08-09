@@ -13,9 +13,12 @@ public class Member {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
+    private String roomCode;
+
     private boolean active = true;
 
-    private boolean presentToday = false;
+    private boolean admin = false;
 
     public Member() {
     }
@@ -28,12 +31,16 @@ public class Member {
         return name;
     }
 
+    public String getRoomCode() {
+        return roomCode;
+    }
+
     public boolean isActive() {
         return active;
     }
 
-    public boolean isPresentToday() {
-        return presentToday;
+    public boolean isAdmin() {
+        return admin;
     }
 
     public void setId(Long id) {
@@ -44,11 +51,15 @@ public class Member {
         this.name = name;
     }
 
+    public void setRoomCode(String roomCode) {
+        this.roomCode = roomCode;
+    }
+
     public void setActive(boolean active) {
         this.active = active;
     }
 
-    public void setPresentToday(boolean presentToday) {
-        this.presentToday = presentToday;
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
     }
 }

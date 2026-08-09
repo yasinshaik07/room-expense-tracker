@@ -7,7 +7,13 @@ import java.util.List;
 
 public interface AttendanceRepo extends JpaRepository<Attendance, Long> {
 
-    List<Attendance> findByAttendanceDate(LocalDate attendanceDate);
+    List<Attendance> findByRoomCodeAndAttendanceDate(
+            String roomCode,
+            LocalDate attendanceDate
+    );
 
-    void deleteByAttendanceDate(LocalDate attendanceDate);
+    void deleteByRoomCodeAndAttendanceDate(
+            String roomCode,
+            LocalDate attendanceDate
+    );
 }

@@ -15,6 +15,8 @@ public class Attendance {
 
     private String memberName;
 
+    private String roomCode;
+
     private LocalDate attendanceDate;
 
     private boolean present;
@@ -32,6 +34,10 @@ public class Attendance {
 
     public String getMemberName() {
         return memberName;
+    }
+
+    public String getRoomCode() {
+        return roomCode;
     }
 
     public LocalDate getAttendanceDate() {
@@ -52,6 +58,10 @@ public class Attendance {
 
     public void setMemberName(String memberName) {
         this.memberName = memberName;
+    }
+
+    public void setRoomCode(String roomCode) {
+        this.roomCode = roomCode;
     }
 
     public void setAttendanceDate(LocalDate attendanceDate) {

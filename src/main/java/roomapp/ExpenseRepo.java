@@ -7,12 +7,22 @@ import java.util.List;
 
 public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 
-    List<Expense> findAllByOrderByExpenseDateDescIdDesc();
+    List<Expense> findByRoomCodeAndDeletedFalseOrderByExpenseDateDescIdDesc(
+            String roomCode
+    );
 
-    List<Expense> findByExpenseDate(LocalDate date);
+    List<Expense> findByRoomCodeAndDeletedFalseAndExpenseDate(
+            String roomCode,
+            LocalDate date
+    );
 
-    List<Expense> findByExpenseDateBetween(
+    List<Expense> findByRoomCodeAndDeletedFalseAndExpenseDateBetween(
+            String roomCode,
             LocalDate start,
             LocalDate end
+    );
+
+    List<Expense> findByRoomCodeAndDeletedTrueOrderByDeletedAtDesc(
+            String roomCode
     );
 }
